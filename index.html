@@ -15,25 +15,40 @@
 </head>
 <body>
 <header class="app-header">
-  <div class="header-title brand-title"><img src="app-logo.png" class="header-logo" alt="シンプルシフト表 飲食店版"><div><p class="eyebrow">飲食店版・LINE画像共有修正版 2026.7.19 v9</p><h1>シンプルシフト表</h1></div></div>
+  <div class="header-title brand-title"><img src="app-logo.png" class="header-logo" alt="シンプルシフト表 飲食店版"><div><p class="eyebrow">飲食店版</p><h1>シンプルシフト表</h1></div></div>
   <div class="header-actions">
-    <button id="pdfButton" class="secondary-button">PDF出力</button>
-    <button id="printButton" class="secondary-button">印刷</button>
-    <button id="lineShareButton" class="secondary-button">LINEで送る</button>
-    <button id="openShiftModalButton" class="primary-button">＋ 新しいシフト表</button>
+    <button id="openShiftModalButton" class="primary-button">＋ 新しいシフト</button>
   </div>
 </header>
 <main class="app-main">
-  <nav class="tab-bar">
-    <button class="tab-button active" data-view="shifts">シフト表</button>
-    <button class="tab-button" data-view="staff">スタッフ</button>
-    <button class="tab-button" data-view="settings">種類変更・登録</button>
+  <nav class="tab-bar" aria-label="メインメニュー">
+    <button class="tab-button active" data-view="shifts"><span>シフト</span></button>
+    <button class="tab-button" data-view="staff"><span>スタッフ</span></button>
+    <button class="tab-button" data-view="settings"><span>勤務パターン</span></button>
+    <button class="tab-button" data-view="data"><span>データ管理</span></button>
+    <button class="tab-button" data-view="appSettings"><span>設定</span></button>
   </nav>
 
   <section id="shiftsView" class="view">
-    <section class="panel">
-      <div class="section-title-row"><div><h2>シフト表一覧</h2><p>作成内容はこの端末に自動保存されます。</p></div></div>
-      <div id="emptyMessage" class="empty-message">まだシフト表がありません。</div>
+   <section class="panel" id="firstSetupPanel">
+  <div class="section-title-row">
+    <div>
+      <h2 id="staffCountTitle">現在スタッフ登録 0人</h2>
+      <p id="staffGuideMessage">
+        まずはスタッフを登録しましょう。<br>
+        登録が終われば、すぐにシフトを作成できます。
+      </p>
+    </div>
+  </div>
+
+  <button
+    id="firstSetupStaffButton"
+    class="primary-button"
+    type="button">
+    ＋ スタッフを登録する
+  </button>
+</section> 
+      <div id="emptyMessage" class="empty-message empty-state"><strong>まだシフトはありません</strong><p>最初にスタッフを登録すると、シフト作成がスムーズです。</p><button id="emptyCreateShiftButton" class="primary-button" type="button">＋ 新しいシフトを作成</button></div>
       <div id="shiftList" class="shift-grid"></div>
     </section>
     <section id="detailPanel" class="panel hidden">
@@ -42,10 +57,13 @@
         <button id="closeDetailButton" class="secondary-button">一覧へ戻る</button>
       </div>
       <div class="detail-toolbar">
-        <button id="manageShiftStaffButton" class="primary-button">＋ このシフトのスタッフ</button>
-        <button id="toggleHeadcountButton" class="secondary-button">出勤人数を非表示</button>
+        <button id="manageShiftStaffButton" class="secondary-button">スタッフを変更</button>
         <button id="copyPreviousButton" class="secondary-button">前日をコピー</button>
-        <button id="clearShiftButton" class="danger-outline-button">入力を全消去</button>
+        <button id="lineShareButton" class="primary-button">LINEで送る</button>
+        <button id="pdfButton" class="secondary-button">PDF保存</button>
+        <button id="printButton" class="secondary-button">印刷</button>
+        <button id="toggleHeadcountButton" class="secondary-button utility-button">出勤人数を非表示</button>
+        <button id="clearShiftButton" class="danger-outline-button utility-button">入力を全消去</button>
       </div>
       <div id="staffEmptyMessage" class="empty-message">「スタッフ」画面でスタッフを登録してください。</div>
       <div class="table-wrap"><table id="shiftTable" class="shift-table"></table></div>
@@ -57,36 +75,89 @@
     <section class="panel">
       <div class="section-title-row">
         <div><h2>スタッフ管理</h2><p>登録したスタッフは新しいシフト表へ自動反映されます。</p></div>
-        <button id="openStaffModalButton" class="primary-button">＋ スタッフ追加</button>
       </div>
       <div id="masterStaffEmptyMessage" class="empty-message">スタッフが登録されていません。</div>
       <div id="staffList" class="staff-list"></div>
+      <button id="openStaffModalButton" class="primary-button staff-add-button">＋ スタッフ追加</button>
     </section>
   </section>
 
   <section id="settingsView" class="view hidden">
     <section class="panel">
       <div class="section-title-row">
-        <div><h2>種類変更・登録</h2><p>ランチ・ディナー以外にも、ホール・厨房・ドリンカー・仕込みなどを自由に登録、名前変更、削除できます。</p></div>
+        <div><h2>勤務パターン設定</h2><p class="benefit-lead"><strong>複数のシフトを作成する店舗向け</strong><br>スタッフに「ランチ」「ディナー」などの勤務パターンを設定しておくと、シフト作成時に該当するスタッフが自動で表示され、毎回スタッフを選び直す手間がありません。</p></div>
       </div>
       <div class="category-add-row">
-        <input id="newCategoryName" type="text" maxlength="20" placeholder="新しい種類名を入力（例：ホール、厨房、ドリンカー）">
-        <button id="addCategoryButton" class="primary-button" type="button">＋ 種類を登録</button>
+        <input id="newCategoryName" type="text" maxlength="20" placeholder="新しい勤務パターン名を入力（例：ホール、厨房、ドリンカー）">
+        <button id="addCategoryButton" class="primary-button" type="button">＋ 登録</button>
       </div>
       <div id="categoryList" class="staff-list"></div>
-      <p class="backup-note">シフト表やスタッフで使用中の種類は削除できません。</p>
+      <p class="backup-note">シフト表やスタッフで使用中の勤務パターンは削除できません。</p>
 
-      <details class="data-management-box">
-        <summary>データ管理</summary>
-        <div class="data-management-content">
-          <p>端末変更や万一に備えて、現在のスタッフ・種類・シフト表を保存できます。</p>
-          <div class="backup-actions">
-            <button id="exportButton" class="secondary-button" type="button">データを保存</button>
-            <label class="secondary-button file-button">保存データから復元<input id="importInput" type="file" accept=".json,application/json"></label>
+
+    </section>
+  </section>
+
+
+
+  <section id="dataView" class="view hidden">
+    <section class="panel settings-panel">
+      <div class="section-title-row"><div><h2>データ管理</h2><p>機種変更や万一のときも、登録内容を安全に守れます。</p></div></div>
+      <div class="settings-group">
+        <h3>データ管理</h3>
+        <div class="settings-list">
+          <div class="setting-item">
+            <div><strong>バックアップ</strong><p>スタッフ・勤務パターン・シフト表をファイルに保存します。万一のデータ消失に備えられます。</p></div>
+            <button id="exportButton" class="secondary-button" type="button">保存する</button>
           </div>
-          <p class="backup-note">保存したファイルは開いたり編集したりせず、そのまま保管してください。復元すると現在のデータは置き換わります。</p>
+          <div class="setting-item">
+            <div><strong>復元</strong><p>保存しておいたバックアップから、スタッフ・勤務パターン・シフト表をまとめて戻します。</p></div>
+            <label class="secondary-button file-button">復元する<input id="importInput" type="file" accept=".json,application/json"></label>
+          </div>
+          <div class="setting-item">
+            <div><strong>スタッフデータの移行</strong><p>機種変更時や別の端末へスタッフ情報をそのまま移せます。再登録する手間がありません。</p></div>
+            <span class="coming-soon">今後対応</span>
+          </div>
+          <div class="setting-item">
+            <div><strong>シフトデータの移行</strong><p>作成済みのシフト表を新しい端末へ移せます。過去のシフトもそのまま利用できます。</p></div>
+            <span class="coming-soon">今後対応</span>
+          </div>
         </div>
-      </details>
+      </div>
+
+      <div class="settings-group">
+        <h3>自動バックアップ</h3>
+        <p class="benefit-lead">スタッフやシフトを変更すると、自動で保存されます。機種変更や万一のトラブルの際は、ここから戻せます。</p>
+        <div id="autoBackupEmpty" class="empty-message">まだ自動バックアップはありません。</div>
+        <div id="autoBackupList" class="settings-list"></div>
+        <p class="backup-note">直近30日分まで保存されます。それより古いものは自動的に削除されます。</p>
+      </div>
+
+      
+    </section>
+  </section>
+  <section id="appSettingsView" class="view hidden">
+    <section class="panel settings-panel">
+      <div class="section-title-row">
+        <div><h2>設定</h2><p>サポートとアプリ情報を確認できます。</p></div>
+      </div>
+
+      <div class="settings-group">
+        <h3>サポート</h3>
+        <div class="settings-list">
+          <button class="setting-link" type="button" data-info="使い方は、各画面の短い説明を見ながら操作できるように整備中です。"><span><strong>使い方</strong><small>初めてでも迷わない操作ガイド</small></span><span>›</span></button>
+          <button class="setting-link" type="button" data-info="お問い合わせ窓口はApp Store公開時に設定します。"><span><strong>お問い合わせ</strong><small>不具合やご要望を送る</small></span><span>›</span></button>
+          <button class="setting-link" type="button" data-info="App Store公開後に評価画面へ移動できるようにします。"><span><strong>アプリを評価する</strong><small>App Storeで評価を送る</small></span><span>›</span></button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>アカウント</h3>
+        <div class="settings-list">
+          <div class="setting-item"><div><strong>利用プラン</strong><p>初月無料。翌月から月額300円の予定です。未課金でも作成済みシフトは閲覧できます。</p></div><span class="status-badge">準備中</span></div>
+          <div class="setting-item"><div><strong>バージョン</strong><p>シンプルシフト表 飲食店版</p></div><span class="version-text">Ver. 1.0.0</span></div>
+        </div>
+      </div>
     </section>
   </section>
 </main>
@@ -98,7 +169,7 @@
     <form id="shiftForm">
       <input type="hidden" id="shiftId">
       <label for="shiftName">シフト名</label><input id="shiftName" type="text" placeholder="例：8月ランチ前期" required>
-      <label for="shiftType">種類</label><select id="shiftType"></select>
+      <label for="shiftType">勤務パターン</label><select id="shiftType"></select>
       <label for="startDate">開始日</label><input id="startDate" type="date" required>
       <label for="endDate">終了日</label><input id="endDate" type="date" required>
       <p id="shiftError" class="error-message"></p>
@@ -114,7 +185,7 @@
     <form id="staffForm">
       <input type="hidden" id="staffId">
       <label for="staffName">スタッフ名</label><input id="staffName" type="text" placeholder="例：店長" required>
-      <label>種類（複数選択できます）</label>
+      <label>勤務パターン（複数選択できます）</label>
       <div id="staffWorkTypes" class="work-type-checklist"></div>
       <label class="check-label"><input id="isManager" type="checkbox">店長として一番上に表示</label>
       <div class="form-actions"><button type="button" class="secondary-button" data-close="staff">キャンセル</button><button type="submit" class="primary-button">保存</button></div>
