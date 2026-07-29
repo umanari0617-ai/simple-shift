@@ -307,6 +307,7 @@ html{-webkit-text-size-adjust:100%;touch-action:manipulation}body{padding-bottom
 html{font-size:clamp(14px,1.15vw,17px)}
 body{font-size:1rem}
 .benefit-lead{max-width:780px;margin-top:6px;padding:14px 16px;border-left:4px solid var(--orange,#d96a00);border-radius:8px;background:#fff8ee;color:#4b3a2e;line-height:1.75}
+.field-benefit-note{margin:4px 0 8px;padding:8px 10px;border-left:3px solid var(--orange,#d96a00);border-radius:6px;background:#fff8ee;color:#4b3a2e;font-size:.88em;line-height:1.5}
 .benefit-lead strong{display:inline-block;margin-bottom:2px;color:#9a4300;font-size:1.04em}
 .settings-panel{max-width:900px;margin-inline:auto}
 .settings-group{margin-top:26px}
