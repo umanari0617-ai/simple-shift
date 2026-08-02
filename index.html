@@ -24,7 +24,8 @@
   <nav class="tab-bar" aria-label="メインメニュー">
     <button class="tab-button active" data-view="shifts"><span>シフト</span></button>
     <button class="tab-button" data-view="staff"><span>スタッフ</span></button>
-    <button class="tab-button" data-view="settings"><span>勤務パターン</span></button>
+    <button class="tab-button" data-view="settings"><span>シフト用グループ</span></button>
+    <button class="tab-button" data-view="announcements"><span>お知らせ</span></button>
     <button class="tab-button" data-view="data"><span>データ管理</span></button>
     <button class="tab-button" data-view="appSettings"><span>設定</span></button>
   </nav>
@@ -68,6 +69,7 @@
       <div id="staffEmptyMessage" class="empty-message">「スタッフ」画面でスタッフを登録してください。</div>
       <div class="table-wrap"><table id="shiftTable" class="shift-table"></table></div>
       <p class="table-help">セルを押すと勤務区分を選べます。未入力は従業員の休みとして扱います。</p>
+      <p id="copyChangeNote" class="table-help hidden">（薄いオレンジ箇所は前回からの変更箇所です。）</p>
     </section>
   </section>
 
@@ -85,19 +87,29 @@
   <section id="settingsView" class="view hidden">
     <section class="panel">
       <div class="section-title-row">
-        <div><h2>勤務パターン設定</h2><p class="benefit-lead"><strong>複数のシフトを作成する店舗向け</strong><br>スタッフに「ランチ」「ディナー」などの勤務パターンを設定しておくと、シフト作成時に該当するスタッフが自動で表示され、毎回スタッフを選び直す手間がありません。</p></div>
+        <div><h2>シフト用グループ設定</h2><p class="benefit-lead"><strong>複数のシフトを作成する店舗向け</strong><br>スタッフに「ランチ」「ディナー」などのシフト用グループを設定しておくと、シフト作成時に該当するスタッフが自動で表示され、毎回スタッフを選び直す手間がありません。</p></div>
       </div>
       <div class="category-add-row">
-        <input id="newCategoryName" type="text" maxlength="20" placeholder="新しい勤務パターン名を入力（例：ホール、厨房、ドリンカー）">
+        <input id="newCategoryName" type="text" maxlength="20" placeholder="新しいシフト用グループ名を入力（例：ホール、キッチン、ドリンカー）">
         <button id="addCategoryButton" class="primary-button" type="button">＋ 登録</button>
       </div>
       <div id="categoryList" class="staff-list"></div>
-      <p class="backup-note">シフト表やスタッフで使用中の勤務パターンは削除できません。</p>
+      <p class="backup-note">シフト表やスタッフで使用中のシフト用グループは削除できません。</p>
 
 
     </section>
   </section>
 
+  <section id="announcementsView" class="view hidden">
+    <section class="panel">
+      <div class="section-title-row">
+        <div><h2>お知らせ</h2><p>臨時休業やお盆休みなどのお知らせを作成し、LINEやPDFで伝えられます。</p></div>
+        <button id="openAnnouncementModalButton" class="primary-button" type="button">＋ お知らせを作成</button>
+      </div>
+      <div id="announcementEmptyMessage" class="empty-message">まだお知らせはありません。</div>
+      <div id="announcementList" class="staff-list"></div>
+    </section>
+  </section>
 
 
   <section id="dataView" class="view hidden">
@@ -107,19 +119,15 @@
         <h3>データ管理</h3>
         <div class="settings-list">
           <div class="setting-item">
-            <div><strong>バックアップ</strong><p>スタッフ・勤務パターン・シフト表をファイルに保存します。万一のデータ消失に備えられます。</p></div>
+            <div><strong>バックアップ</strong><p>スタッフ・シフト用グループ・シフト表をファイルに保存します。万一のデータ消失に備えられます。</p></div>
             <button id="exportButton" class="secondary-button" type="button">保存する</button>
           </div>
           <div class="setting-item">
-            <div><strong>復元</strong><p>保存しておいたバックアップから、スタッフ・勤務パターン・シフト表をまとめて戻します。</p></div>
+            <div><strong>復元</strong><p>保存しておいたバックアップから、スタッフ・シフト用グループ・シフト表をまとめて戻します。</p></div>
             <label class="secondary-button file-button">復元する<input id="importInput" type="file" accept=".json,application/json"></label>
           </div>
           <div class="setting-item">
-            <div><strong>スタッフデータの移行</strong><p>機種変更時や別の端末へスタッフ情報をそのまま移せます。再登録する手間がありません。</p></div>
-            <span class="coming-soon">今後対応</span>
-          </div>
-          <div class="setting-item">
-            <div><strong>シフトデータの移行</strong><p>作成済みのシフト表を新しい端末へ移せます。過去のシフトもそのまま利用できます。</p></div>
+            <div><strong>データ移行</strong><p>機種変更時や別の端末へ、スタッフ・シフト用グループ・シフト表をまとめて移せます。再登録する手間がありません。</p></div>
             <span class="coming-soon">今後対応</span>
           </div>
         </div>
@@ -169,12 +177,64 @@
     <form id="shiftForm">
       <input type="hidden" id="shiftId">
       <label for="shiftName">シフト名</label><input id="shiftName" type="text" placeholder="例：8月ランチ前期" required>
-      <label for="shiftType">勤務パターン</label><select id="shiftType"></select>
+      <label>シフト用グループ（複数選択できます）</label>
+      <div id="shiftGroupChecklist" class="work-type-checklist"></div>
       <label for="startDate">開始日</label><input id="startDate" type="date" required>
       <label for="endDate">終了日</label><input id="endDate" type="date" required>
       <p id="shiftError" class="error-message"></p>
       <div class="form-actions"><button type="button" class="secondary-button" data-close="shift">キャンセル</button><button type="submit" class="primary-button">保存</button></div>
     </form>
+  </div>
+</div>
+
+<div id="announcementModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close="announcement"></div>
+  <div class="modal-card">
+    <div class="modal-heading"><h2 id="announcementModalTitle">お知らせを作成</h2><button class="icon-button" data-close="announcement">×</button></div>
+    <form id="announcementForm">
+      <input type="hidden" id="announcementId">
+      <label for="announcementTemplate">お知らせのテンプレート</label>
+      <select id="announcementTemplate"></select>
+      <div class="registered-settings">
+        <div class="registered-settings-title">お知らせのテンプレートを追加・削除</div>
+        <div id="announcementTemplateManageList" class="registered-assignment-list"></div>
+        <div class="custom-assignment-row">
+          <input id="newAnnouncementTemplateName" type="text" maxlength="20" placeholder="例：定休日変更">
+          <button id="addAnnouncementTemplateButton" type="button" class="secondary-button">＋ 登録</button>
+        </div>
+      </div>
+      <label for="announcementStartDate">開始日</label><input id="announcementStartDate" type="date" required>
+      <label for="announcementEndDate">終了日（空欄の場合は開始日と同じ日になります）</label><input id="announcementEndDate" type="date">
+      <div id="announcementTimeFields" class="hidden">
+        <label for="announcementStartTime">変更後の営業開始時刻</label><input id="announcementStartTime" type="time">
+        <label for="announcementEndTime">変更後の営業終了時刻</label><input id="announcementEndTime" type="time">
+      </div>
+      <div id="announcementDayStatusWrap">
+        <label>日にちごとの状態（シフト表のように、日ごとに変更できます）</label>
+        <div class="table-wrap"><table id="announcementDayStatusTable" class="shift-table"></table></div>
+        <div class="registered-settings">
+          <div class="registered-settings-title">状態の選択肢を追加・削除</div>
+          <div id="announcementStatusManageList" class="registered-assignment-list"></div>
+          <div class="custom-assignment-row">
+            <input id="newAnnouncementStatusName" type="text" maxlength="20" placeholder="例：夜のみ営業（19時〜）">
+            <button id="addAnnouncementStatusButton" type="button" class="secondary-button">＋ 登録</button>
+          </div>
+        </div>
+      </div>
+      <p id="announcementError" class="error-message"></p>
+      <div class="form-actions"><button type="button" class="secondary-button" data-close="announcement">キャンセル</button><button id="announcementSubmitButton" type="submit" class="primary-button">作成する</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="shiftSourceModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close="shiftSource"></div>
+  <div class="modal-card">
+    <div class="modal-heading"><h2>新しいシフト表の作り方</h2><button class="icon-button" data-close="shiftSource">×</button></div>
+    <button id="blankShiftButton" class="primary-button full-button" type="button">＋ 白紙から作成</button>
+    <p class="field-benefit-note">過去のシフトをコピーして作成する場合は、下から選んでください。</p>
+    <div id="shiftSourceList" class="staff-list"></div>
+    <div class="form-actions"><button type="button" class="secondary-button" data-close="shiftSource">キャンセル</button></div>
   </div>
 </div>
 
@@ -185,7 +245,7 @@
     <form id="staffForm">
       <input type="hidden" id="staffId">
       <label for="staffName">スタッフ名</label><input id="staffName" type="text" placeholder="例：店長" required>
-      <label>勤務パターン（複数選択できます）</label>
+      <label>シフト用グループ（複数選択できます）</label>
       <p class="field-benefit-note">選んでおくと、シフト作成時にこのスタッフが自動で表示されます。毎回スタッフを選び直す手間がありません。</p>
       <div id="staffWorkTypes" class="work-type-checklist"></div>
       <label class="check-label"><input id="isManager" type="checkbox">店長として一番上に表示</label>
@@ -267,6 +327,7 @@
   </div>
 </div>
 <div id="toast" class="toast hidden"></div>
+<div id="announcementPrintArea"></div>
 <script src="script-20260719-line-v9.js"></script>
 
 </body>
