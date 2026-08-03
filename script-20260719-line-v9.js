@@ -14,7 +14,7 @@ function bind(){
  document.querySelectorAll("[data-close]").forEach(x=>x.onclick=()=>closeModal(x.dataset.close));
  document.querySelectorAll(".tab-button").forEach(x=>x.onclick=()=>switchView(x.dataset.view));document.querySelectorAll(".setting-link[data-info]").forEach(x=>x.onclick=()=>alert(x.dataset.info));
 }
-function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["営業（通常）","臨時休業","昼のみ営業","夜のみ営業","貸切"],announcementTemplates:["臨時休業","お盆","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
+function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["通常営業","臨時休業","休業","昼のみ営業","夜のみ営業","貸切"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||defaultState()}catch{return defaultState()}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));autoBackup()}
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
@@ -56,8 +56,8 @@ function restoreAutoBackup(entry){
 function id(){return crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random()}
 function migrateOld(){
  if(!Array.isArray(state.staff))state.staff=[];if(!Array.isArray(state.shifts))state.shifts=[];if(!Array.isArray(state.announcements))state.announcements=[];
- if(!Array.isArray(state.announcementStatuses)||!state.announcementStatuses.length)state.announcementStatuses=["営業（通常）","臨時休業","昼のみ営業","夜のみ営業","貸切"];
- if(!Array.isArray(state.announcementTemplates)||!state.announcementTemplates.length)state.announcementTemplates=["臨時休業","お盆","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"];
+ if(!Array.isArray(state.announcementStatuses)||!state.announcementStatuses.length)state.announcementStatuses=["通常営業","臨時休業","休業","昼のみ営業","夜のみ営業","貸切"];
+ if(!Array.isArray(state.announcementTemplates)||!state.announcementTemplates.length)state.announcementTemplates=["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"];
  if(!Array.isArray(state.categories)||!state.categories.length)state.categories=[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}];
  state.categories=state.categories.filter(c=>c&&c.id&&c.name);
  if(!state.customOptions||typeof state.customOptions!=="object")state.customOptions={};
@@ -452,18 +452,11 @@ function copyPrevious(){
 }
 function clearShift(){const s=selected();if(s&&confirm("このシフト表の入力内容をすべて消去しますか？")){s.assignments={};save();renderDetail();toast("入力を全消去しました")}}
 
-const ANNOUNCEMENT_DEFAULT_STATUS={"臨時休業":"臨時休業","お盆":"臨時休業","年末年始":"臨時休業","貸切":"貸切","ランチ休業":"夜のみ営業","ディナー休業":"昼のみ営業"};
-const ANNOUNCEMENT_STATUS_COLORS={
- "営業（通常）":{bg:"#eaf6ec",border:"#2e7d32",text:"#1b5e20"},
- "臨時休業":{bg:"#fdecea",border:"#c62828",text:"#b71c1c"},
- "昼のみ営業":{bg:"#fff4e5",border:"#e65100",text:"#9a4200"},
- "夜のみ営業":{bg:"#0f2a4a",border:"#0f2a4a",text:"#ffffff"},
- "貸切":{bg:"#f3e8fb",border:"#6a1b9a",text:"#4a148c"}
-};
-function announcementStatusColor(name){return ANNOUNCEMENT_STATUS_COLORS[name]||{bg:"#f2f0ee",border:"#746d68",text:"#3d3835"}}
+const ANNOUNCEMENT_DEFAULT_STATUS={"臨時休業":"臨時休業","夏季休暇":"臨時休業","年末年始":"臨時休業","貸切":"貸切","ランチ休業":"夜のみ営業","ディナー休業":"昼のみ営業"};
+function announcementStatusTextColor(name){return (name==="休業"||name==="臨時休業")?"#c62828":"#292421"}
 function announcementPeriodText(start,end){if(!start)return "";if(!end||end===start)return longDate(start);return `${longDate(start)}～${longDate(end)}`}
 function isConsecutiveDate(prev,next){return new Date(next+"T00:00:00")-new Date(prev+"T00:00:00")===86400000}
-function announcementDayEntries(a){if(a.template==="営業時間変更")return [];return dateRange(a.startDate,a.endDate).map(d=>({date:d,status:a.dayStatuses?.[d]||"営業（通常）"}))}
+function announcementDayEntries(a){if(a.template==="営業時間変更")return [];return dateRange(a.startDate,a.endDate).map(d=>({date:d,status:a.dayStatuses?.[d]||"通常営業"}))}
 function buildAnnouncementText(a){
  if(a.template==="営業時間変更"){
   const period=announcementPeriodText(a.startDate,a.endDate);
@@ -612,7 +605,6 @@ function renderAnnouncementList(){
  list.querySelectorAll(".pdf").forEach(b=>b.onclick=()=>exportAnnouncementPdf(b.dataset.id));
  list.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(confirm("このお知らせを削除しますか？")){state.announcements=state.announcements.filter(x=>x.id!==b.dataset.id);save();renderAnnouncementList()}});
 }
-function roundRectPath(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
 async function createAnnouncementImageFile(a){
  const width=760,padding=40,titleHeight=64,dateColWidth=190;
  const entries=announcementDayEntries(a);
@@ -625,8 +617,8 @@ async function createAnnouncementImageFile(a){
  canvas.width=Math.round(width*scale);canvas.height=Math.round(height*scale);
  const ctx=canvas.getContext("2d");ctx.scale(scale,scale);
  ctx.fillStyle="#fffdf8";ctx.fillRect(0,0,width,height);
- ctx.fillStyle="#292421";ctx.font="bold 27px sans-serif";ctx.textBaseline="alphabetic";
- ctx.fillText(`${a.template}のお知らせ`,padding,padding+30);
+ ctx.fillStyle="#292421";ctx.font="bold 32px sans-serif";ctx.textBaseline="alphabetic";
+ ctx.fillText(`${a.template}のお知らせ`,padding,padding+34);
  let y=padding+titleHeight;
  if(a.template==="営業時間変更"){
   ctx.fillStyle="#5b3500";ctx.font="16px sans-serif";
@@ -635,19 +627,16 @@ async function createAnnouncementImageFile(a){
   ctx.fillText(`営業時間　${a.startTime}～${a.endTime}`,padding,y);y+=30;
  }else{
   entries.forEach(e=>{
-   const c=announcementStatusColor(e.status);
    ctx.fillStyle="#292421";ctx.font="17px sans-serif";
    ctx.fillText(longDate(e.date),padding,y+24);
    const badgeX=padding+dateColWidth,badgeW=width-padding*2-dateColWidth;
-   ctx.fillStyle=c.bg;roundRectPath(ctx,badgeX,y-2,badgeW,34,8);ctx.fill();
-   ctx.strokeStyle=c.border;ctx.lineWidth=1.5;roundRectPath(ctx,badgeX,y-2,badgeW,34,8);ctx.stroke();
-   ctx.fillStyle=c.text;ctx.font="bold 16px sans-serif";ctx.textAlign="center";
+   ctx.fillStyle=announcementStatusTextColor(e.status);ctx.font="bold 18px sans-serif";ctx.textAlign="center";
    ctx.fillText(e.status,badgeX+badgeW/2,y+22);ctx.textAlign="left";
    y+=rowHeight;
   });
  }
- ctx.fillStyle="#5b3500";ctx.font="14px sans-serif";
- ctx.fillText("ご不便をおかけしますが、何卒よろしくお願いいたします。",padding,y+22);
+ ctx.fillStyle="#5b3500";ctx.font="18px sans-serif";
+ ctx.fillText("ご不便をおかけしますが、何卒よろしくお願いいたします。",padding,y+26);
  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));
  return new File([blob],"announcement.png",{type:"image/png"});
 }
@@ -673,8 +662,7 @@ function renderAnnouncementCardHtml(a){
   return `${title}<p class="announcement-period">${esc(announcementPeriodText(a.startDate,a.endDate))}</p><p class="announcement-message">営業時間を ${esc(a.startTime)}～${esc(a.endTime)} に変更させていただきます。</p>`;
  }
  const rows=announcementDayEntries(a).map(e=>{
-  const c=announcementStatusColor(e.status);
-  return `<div class="announcement-day-row"><span class="announcement-day-date">${esc(longDate(e.date))}</span><span class="announcement-day-badge" style="background:${c.bg};border-color:${c.border};color:${c.text}">${esc(e.status)}</span></div>`;
+  return `<div class="announcement-day-row"><span class="announcement-day-date">${esc(longDate(e.date))}</span><span class="announcement-day-badge" style="color:${announcementStatusTextColor(e.status)}">${esc(e.status)}</span></div>`;
  }).join("");
  return `${title}<div class="announcement-day-rows">${rows}</div><p class="announcement-message">ご不便をおかけしますが、何卒よろしくお願いいたします。</p>`;
 }
@@ -683,13 +671,19 @@ function exportAnnouncementPdf(annId){
  $("announcementPrintArea").innerHTML=renderAnnouncementCardHtml(a);
  const rowCount=announcementDayEntries(a).length;
  document.body.classList.remove("announcement-print-dense","announcement-print-ultra");
- if(rowCount>14)document.body.classList.add("announcement-print-ultra");
- else if(rowCount>7)document.body.classList.add("announcement-print-dense");
+ if(rowCount>22)document.body.classList.add("announcement-print-ultra");
+ else if(rowCount>12)document.body.classList.add("announcement-print-dense");
  document.body.classList.add("printing-announcement");
  window.print();
 }
 function normalize(s){const valid=new Set(dateRange(s.startDate,s.endDate));Object.values(s.assignments||{}).forEach(m=>Object.keys(m).forEach(d=>{if(!valid.has(d))delete m[d]}));if(!s.dayStatuses||typeof s.dayStatuses!="object")s.dayStatuses={};Object.keys(s.dayStatuses).forEach(d=>{if(!valid.has(d))delete s.dayStatuses[d]})}
-function openStaffModal(p=null){els.staffForm.reset();$("staffModalTitle").textContent=p?"スタッフ編集":"スタッフ追加";els.staffId.value=p?.id||"";els.staffName.value=p?.name||"";renderStaffTypeChecklist(p?.workTypes||[state.categories[0].id]);els.isManager.checked=!!p?.isManager;openModal("staff");els.staffName.focus()}
+function openStaffModal(p=null){els.staffForm.reset();$("staffModalTitle").textContent=p?"スタッフ編集":"スタッフ追加";els.staffId.value=p?.id||"";els.staffName.value=p?.name||"";renderStaffTypeChecklist(p?.workTypes||[state.categories[0].id]);els.isManager.checked=!!p?.isManager;renderStaffModalRegisteredList(!p);openModal("staff");els.staffName.focus()}
+function renderStaffModalRegisteredList(show){
+ const wrap=$("staffModalRegisteredWrap");if(!wrap)return;
+ wrap.classList.toggle("hidden",!show||state.staff.length===0);
+ $("staffModalRegisteredCount").textContent=state.staff.length;
+ $("staffModalRegisteredNames").innerHTML=state.staff.map(p=>`<span class="staff-modal-registered-chip">${esc(p.name)}</span>`).join("");
+}
 function saveStaff(e){
  e.preventDefault();
  const name=els.staffName.value.trim();
@@ -711,6 +705,7 @@ function saveStaff(e){
   $("staffModalTitle").textContent="スタッフ追加";
   renderStaffTypeChecklist([state.categories[0].id]);
   els.isManager.checked=false;
+  renderStaffModalRegisteredList(true);
   els.staffName.focus();
  }
 }

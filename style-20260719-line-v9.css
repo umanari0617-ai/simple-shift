@@ -25,7 +25,8 @@ html{-webkit-text-size-adjust:100%;touch-action:manipulation}body{padding-bottom
   .header-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
   #printButton,#mobileOpenButton{display:none!important}
   #openShiftModalButton{grid-column:1/-1;order:-1;min-height:48px;font-size:15px}
-  #pdfButton,#lineShareButton{min-height:44px;font-size:13px}
+  #pdfButton{min-height:44px;font-size:13px}
+  #lineShareButton{min-height:38px;font-size:12px}
 
   .app-main{width:100%;margin:0;padding:8px 8px 24px}
   .tab-bar{position:sticky;top:0;z-index:18;margin:0 0 8px;padding:4px;border-radius:12px;box-shadow:0 3px 12px rgba(0,0,0,.08)}
@@ -83,7 +84,8 @@ html{-webkit-text-size-adjust:100%;touch-action:manipulation}body{padding-bottom
   .app-header h1{font-size:18px;line-height:1.1}
   .header-actions{gap:5px}
   #openShiftModalButton{min-height:40px;font-size:14px}
-  #pdfButton,#lineShareButton{min-height:36px;padding:6px 6px;font-size:12px}
+  #pdfButton{min-height:36px;padding:6px 6px;font-size:12px}
+  #lineShareButton{min-height:32px;padding:5px 5px;font-size:11px}
   #mobileOpenButton{display:none!important}
 
   .app-main{padding:6px 6px 20px}
@@ -291,32 +293,40 @@ html{-webkit-text-size-adjust:100%;touch-action:manipulation}body{padding-bottom
   body.print-ultra .headcount-row td{height:5.2mm!important}
 }
 #announcementPrintArea{display:none}
+input,select,textarea{font-size:16px!important}
+#lineShareButton{background:#06c755;border-color:#06c755;color:#fff}
+.staff-modal-registered{margin-bottom:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#faf8f6;max-height:120px;overflow:auto}
+.staff-modal-registered-title{margin:0 0 8px;font-size:13px;font-weight:800;color:var(--muted)}
+.staff-modal-registered-names{display:flex;flex-wrap:wrap;gap:6px}
+.staff-modal-registered-chip{padding:4px 10px;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:800}
 .announcement-day-select{width:100%;min-width:88px;padding:6px 4px;font-size:12px}
 #announcementList .setting-item p{white-space:pre-wrap}
-.announcement-day-rows{width:100%;max-width:160mm;text-align:left}
+.announcement-day-rows{width:100%;max-width:160mm;margin:0 auto;text-align:left}
 .announcement-day-row{display:flex;align-items:center;justify-content:space-between;gap:10mm;padding:4mm 2mm;border-bottom:1px dashed #ddd}
 .announcement-day-date{font-size:14pt;font-weight:800;color:#292421}
-.announcement-day-badge{display:inline-block;min-width:55mm;padding:3mm 6mm;border:2px solid;border-radius:6mm;font-size:14pt;font-weight:900;text-align:center}
+.announcement-day-badge{font-weight:900;text-align:right}
 @media print{
   body.printing-announcement #shiftsView,body.printing-announcement #detailPanel,body.printing-announcement #staffView,body.printing-announcement #settingsView,body.printing-announcement #announcementsView,body.printing-announcement #dataView,body.printing-announcement #appSettingsView{display:none!important}
-  body.printing-announcement #announcementPrintArea{display:flex!important;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;overflow:hidden;width:100%;height:100vh;padding:10mm;text-align:center}
-  body.printing-announcement #announcementPrintArea h2{margin:0 0 8mm;font-size:26pt;font-weight:900}
-  body.printing-announcement #announcementPrintArea .announcement-message{margin-top:8mm;font-size:14pt}
-  body.printing-announcement #announcementPrintArea .announcement-period{font-size:13pt;color:#5b3500}
+  body.printing-announcement{display:flex!important;flex-direction:column;align-items:center;justify-content:center;min-height:100vh}
+  body.printing-announcement #announcementPrintArea{display:block!important;box-sizing:border-box;width:100%;max-width:260mm;padding:6mm 12mm;text-align:center}
+  body.printing-announcement #announcementPrintArea h2{margin:0 0 7mm;font-size:34pt;font-weight:900}
+  body.printing-announcement #announcementPrintArea .announcement-message{margin-top:7mm;font-size:16pt}
+  body.printing-announcement #announcementPrintArea .announcement-period{font-size:14pt;color:#5b3500}
   body.printing-announcement #announcementPrintArea .announcement-day-row{break-inside:avoid;padding:3mm 2mm}
-  body.printing-announcement #announcementPrintArea .announcement-day-date{font-size:13pt}
-  body.printing-announcement #announcementPrintArea .announcement-day-badge{font-size:13pt;padding:2.5mm 5mm;min-width:48mm}
+  body.printing-announcement #announcementPrintArea .announcement-day-date{font-size:15pt}
+  body.printing-announcement #announcementPrintArea .announcement-day-badge{font-size:16pt}
   body.announcement-print-dense #announcementPrintArea{padding:8mm}
-  body.announcement-print-dense #announcementPrintArea h2{margin-bottom:5mm;font-size:19pt}
-  body.announcement-print-dense #announcementPrintArea .announcement-day-row{padding:1.6mm 2mm}
-  body.announcement-print-dense #announcementPrintArea .announcement-day-date,body.announcement-print-dense #announcementPrintArea .announcement-day-badge{font-size:11pt}
-  body.announcement-print-dense #announcementPrintArea .announcement-message{margin-top:5mm;font-size:11pt}
+  body.announcement-print-dense #announcementPrintArea h2{margin-bottom:8mm;font-size:32pt}
+  body.announcement-print-dense #announcementPrintArea .announcement-day-row{padding:2.6mm 2mm}
+  body.announcement-print-dense #announcementPrintArea .announcement-day-date{font-size:14pt}
+  body.announcement-print-dense #announcementPrintArea .announcement-day-badge{font-size:15pt}
+  body.announcement-print-dense #announcementPrintArea .announcement-message{margin-top:6mm;font-size:15pt}
   body.announcement-print-ultra #announcementPrintArea{padding:6mm}
-  body.announcement-print-ultra #announcementPrintArea h2{margin-bottom:3mm;font-size:15pt}
+  body.announcement-print-ultra #announcementPrintArea h2{margin-bottom:3mm;font-size:18pt}
   body.announcement-print-ultra #announcementPrintArea .announcement-day-row{padding:.8mm 2mm}
-  body.announcement-print-ultra #announcementPrintArea .announcement-day-date,body.announcement-print-ultra #announcementPrintArea .announcement-day-badge{font-size:9pt}
-  body.announcement-print-ultra #announcementPrintArea .announcement-day-badge{padding:1.2mm 3mm;min-width:38mm}
-  body.announcement-print-ultra #announcementPrintArea .announcement-message{margin-top:3mm;font-size:9pt}
+  body.announcement-print-ultra #announcementPrintArea .announcement-day-date{font-size:9pt}
+  body.announcement-print-ultra #announcementPrintArea .announcement-day-badge{font-size:9.5pt}
+  body.announcement-print-ultra #announcementPrintArea .announcement-message{margin-top:3mm;font-size:10pt}
 }
 
 /* 2026-07 飲食店版アップデート */

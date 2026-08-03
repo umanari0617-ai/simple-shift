@@ -242,6 +242,10 @@
   <div class="modal-backdrop" data-close="staff"></div>
   <div class="modal-card">
     <div class="modal-heading"><h2 id="staffModalTitle">スタッフ追加</h2><button class="icon-button" data-close="staff">×</button></div>
+    <div id="staffModalRegisteredWrap" class="staff-modal-registered hidden">
+      <p class="staff-modal-registered-title">登録済みのスタッフ（<span id="staffModalRegisteredCount">0</span>人）</p>
+      <div id="staffModalRegisteredNames" class="staff-modal-registered-names"></div>
+    </div>
     <form id="staffForm">
       <input type="hidden" id="staffId">
       <label for="staffName">スタッフ名</label><input id="staffName" type="text" placeholder="例：店長" required>
