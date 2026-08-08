@@ -72,8 +72,23 @@ function migrateOld(){
  state.shifts.forEach(s=>{if(!state.categories.some(c=>c.id===s.type))s.type=state.categories[0].id;if(!s.staffOverrides||typeof s.staffOverrides!=="object")s.staffOverrides={include:[],exclude:[]};if(!Array.isArray(s.staffOverrides.include))s.staffOverrides.include=[];if(!Array.isArray(s.staffOverrides.exclude))s.staffOverrides.exclude=[];if(typeof s.showHeadcount!=="boolean")s.showHeadcount=false});sortStaff()
 }
 function switchView(name){["shifts","staff","settings","announcements","data","appSettings"].forEach(v=>$(v+"View").classList.toggle("hidden",v!==name));els.detailPanel.classList.toggle("hidden",!(name==="shifts"&&selectedShiftId));document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.view===name))}
-function openModal(name){$(name+"Modal").classList.remove("hidden")}
-function closeModal(name){$(name+"Modal").classList.add("hidden")}
+let savedScrollY=0;
+function openModal(name){
+ $(name+"Modal").classList.remove("hidden");
+ if(!document.body.classList.contains("modal-open")){
+  savedScrollY=window.scrollY;
+  document.body.classList.add("modal-open");
+  document.body.style.top=`-${savedScrollY}px`;
+ }
+}
+function closeModal(name){
+ $(name+"Modal").classList.add("hidden");
+ if(!document.querySelector(".modal:not(.hidden)")){
+  document.body.classList.remove("modal-open");
+  document.body.style.top="";
+  window.scrollTo(0,savedScrollY);
+ }
+}
 function updateFirstSetupPanel(){
  const panel=$("firstSetupPanel");if(!panel)return;
  const titleEl=$("staffCountTitle");
