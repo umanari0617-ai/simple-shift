@@ -17,7 +17,7 @@
 <header class="app-header">
   <div class="header-title brand-title"><img src="app-logo.png" class="header-logo" alt="シンプルシフト表 飲食店版"><div><p class="eyebrow">飲食店版</p><h1>シンプルシフト表</h1></div></div>
   <div class="header-actions">
-    <button id="openShiftModalButton" class="primary-button">＋ 新しいシフト</button>
+    <button id="mobileOpenButton" class="secondary-button" type="button">携帯で開く</button>
   </div>
 </header>
 <main class="app-main">
@@ -32,6 +32,7 @@
 
   <section id="shiftsView" class="view">
    <section class="panel" id="firstSetupPanel">
+  <img src="app-logo.png" class="welcome-logo" alt="">
   <div class="section-title-row">
     <div>
       <h2 id="staffCountTitle">現在スタッフ登録 0人</h2>
@@ -48,7 +49,17 @@
     type="button">
     ＋ スタッフを登録する
   </button>
-</section> 
+  <button
+    id="firstSetupCreateShiftButton"
+    class="primary-button hidden"
+    type="button">
+    ＋ 新しいシフトを作成
+  </button>
+</section>
+      <div id="shiftListHeaderRow" class="section-title-row hidden">
+        <div><h2>シフト一覧</h2></div>
+        <button id="createShiftButton" class="primary-button" type="button">＋ 新しいシフトを作成</button>
+      </div>
       <div id="emptyMessage" class="empty-message empty-state"><strong>まだシフトはありません</strong><p>最初にスタッフを登録すると、シフト作成がスムーズです。</p><button id="emptyCreateShiftButton" class="primary-button" type="button">＋ 新しいシフトを作成</button></div>
       <div id="shiftList" class="shift-grid"></div>
     </section>
@@ -59,14 +70,13 @@
       </div>
       <div class="detail-toolbar">
         <button id="manageShiftStaffButton" class="secondary-button">スタッフを変更</button>
-        <button id="copyPreviousButton" class="secondary-button">前日をコピー</button>
         <button id="lineShareButton" class="primary-button">LINEで送る</button>
         <button id="pdfButton" class="secondary-button">PDF保存</button>
-        <button id="printButton" class="secondary-button">印刷</button>
         <button id="toggleHeadcountButton" class="secondary-button utility-button">出勤人数を非表示</button>
         <button id="clearShiftButton" class="danger-outline-button utility-button">入力を全消去</button>
       </div>
       <div id="staffEmptyMessage" class="empty-message">「スタッフ」画面でスタッフを登録してください。</div>
+      <div class="copy-previous-row"><button id="copyPreviousButton" class="secondary-button">前日をコピー</button></div>
       <div class="table-wrap"><table id="shiftTable" class="shift-table"></table></div>
       <p class="table-help">セルを押すと勤務区分を選べます。未入力は従業員の休みとして扱います。</p>
       <p id="copyChangeNote" class="table-help hidden">（薄いオレンジ箇所は前回からの変更箇所です。）</p>
@@ -81,6 +91,10 @@
       <div id="masterStaffEmptyMessage" class="empty-message">スタッフが登録されていません。</div>
       <div id="staffList" class="staff-list"></div>
       <button id="openStaffModalButton" class="primary-button staff-add-button">＋ スタッフ追加</button>
+      <div id="staffToShiftGuide" class="benefit-lead hidden">
+        <p>スタッフの登録が完了したら、次は新しいシフトを作成しましょう。</p>
+        <button id="goToNewShiftButton" class="primary-button full-button" type="button">＋ 新しいシフトを作成</button>
+      </div>
     </section>
   </section>
 
@@ -153,7 +167,7 @@
       <div class="settings-group">
         <h3>サポート</h3>
         <div class="settings-list">
-          <button class="setting-link" type="button" data-info="使い方は、各画面の短い説明を見ながら操作できるように整備中です。"><span><strong>使い方</strong><small>初めてでも迷わない操作ガイド</small></span><span>›</span></button>
+          <button id="openHelpModalButton" class="setting-link" type="button"><span><strong>使い方</strong><small>初めてでも迷わない操作ガイド</small></span><span>›</span></button>
           <button class="setting-link" type="button" data-info="お問い合わせ窓口はApp Store公開時に設定します。"><span><strong>お問い合わせ</strong><small>不具合やご要望を送る</small></span><span>›</span></button>
           <button class="setting-link" type="button" data-info="App Store公開後に評価画面へ移動できるようにします。"><span><strong>アプリを評価する</strong><small>App Storeで評価を送る</small></span><span>›</span></button>
         </div>
@@ -252,12 +266,32 @@
       <label>シフト用グループ（複数選択できます）</label>
       <p class="field-benefit-note">選んでおくと、シフト作成時にこのスタッフが自動で表示されます。毎回スタッフを選び直す手間がありません。</p>
       <div id="staffWorkTypes" class="work-type-checklist"></div>
+      <div class="category-add-row">
+        <input id="newStaffGroupName" type="text" maxlength="20" placeholder="当てはまるグループが無い場合はここで追加">
+        <button id="addStaffGroupButton" type="button" class="secondary-button">＋ グループを追加</button>
+      </div>
       <label class="check-label"><input id="isManager" type="checkbox">店長として一番上に表示</label>
       <div class="form-actions"><button type="button" class="secondary-button" data-close="staff">キャンセル</button><button type="submit" class="primary-button">保存</button></div>
     </form>
   </div>
 </div>
 
+<div id="helpModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close="help"></div>
+  <div class="modal-card">
+    <div class="modal-heading"><h2>使い方</h2><button class="icon-button" data-close="help">×</button></div>
+    <ol class="help-steps">
+      <li><strong>スタッフを登録する</strong><p>「スタッフ」タブの「＋スタッフ追加」から、名前とシフト用グループを入力して登録します。</p></li>
+      <li><strong>シフト用グループを確認する</strong><p>「シフト用グループ」タブで、ランチ・ディナーなど、お店に合わせてグループを追加・編集できます。</p></li>
+      <li><strong>新しいシフトを作成する</strong><p>「シフト」タブの「＋新しいシフトを作成」から、シフト名と期間を入力して作成します。過去のシフトをコピーして作ることもできます。</p></li>
+      <li><strong>勤務時間を入力する</strong><p>シフト表のセルを押すと、勤務区分(○・休など)を選べます。未入力は従業員の休みとして扱われます。</p></li>
+      <li><strong>LINEで送る・PDFで保存する</strong><p>シフト表の上にあるボタンから、スタッフにLINEで共有したり、PDFとして保存できます。</p></li>
+      <li><strong>お知らせを作成する</strong><p>「お知らせ」タブから、臨時休業や営業時間変更などをお客様に伝えるお知らせを作成し、LINEやPDFで共有できます。</p></li>
+      <li><strong>データを守る</strong><p>「データ管理」タブの「バックアップ」で、登録内容をファイルに保存できます。機種変更のときも安心です。</p></li>
+    </ol>
+    <div class="form-actions"><button type="button" class="secondary-button" data-close="help">閉じる</button></div>
+  </div>
+</div>
 
 <div id="shiftStaffModal" class="modal hidden" aria-hidden="true">
   <div class="modal-backdrop" data-close="shiftStaff"></div>

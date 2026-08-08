@@ -8,11 +8,17 @@ const els={shiftList:$("shiftList"),emptyMessage:$("emptyMessage"),detailPanel:$
 init();
 function init(){migrateOld();bind();renderAll();save()}
 function bind(){
- on("openShiftModalButton","onclick",()=>startNewShift());on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("pdfButton","onclick",exportPdf);on("printButton","onclick",()=>{if(!selectedShiftId)return alert("印刷するシフト表を開いてください。");window.print()});on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};
+ on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("pdfButton","onclick",exportPdf);on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("addStaffGroupButton","onclick",addStaffModalGroup);if($("newStaffGroupName"))$("newStaffGroupName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStaffModalGroup()}});on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};
+ on("goToNewShiftButton","onclick",()=>{switchView("shifts");startNewShift()});
+ on("createShiftButton","onclick",()=>startNewShift());
  on("openAnnouncementModalButton","onclick",()=>openAnnouncementModal());if($("announcementTemplate"))$("announcementTemplate").onchange=updateAnnouncementFieldsForTemplate;if($("announcementStartDate"))$("announcementStartDate").onchange=()=>renderAnnouncementDayStatusList(false);if($("announcementEndDate"))$("announcementEndDate").onchange=()=>renderAnnouncementDayStatusList(false);if($("announcementForm"))$("announcementForm").onsubmit=saveAnnouncement;on("addAnnouncementStatusButton","onclick",addAnnouncementStatus);if($("newAnnouncementStatusName"))$("newAnnouncementStatusName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addAnnouncementStatus()}});
  on("addAnnouncementTemplateButton","onclick",addAnnouncementTemplate);if($("newAnnouncementTemplateName"))$("newAnnouncementTemplateName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addAnnouncementTemplate()}});
- document.querySelectorAll("[data-close]").forEach(x=>x.onclick=()=>closeModal(x.dataset.close));
- document.querySelectorAll(".tab-button").forEach(x=>x.onclick=()=>switchView(x.dataset.view));document.querySelectorAll(".setting-link[data-info]").forEach(x=>x.onclick=()=>alert(x.dataset.info));
+ document.querySelectorAll("[data-close]").forEach(x=>x.onclick=()=>{
+  const name=x.dataset.close;
+  if(name==="staff"&&els.staffName.value.trim()&&!confirm("入力中の内容は保存されていません。閉じますか？"))return;
+  closeModal(name);
+ });
+ document.querySelectorAll(".tab-button").forEach(x=>x.onclick=()=>switchView(x.dataset.view));document.querySelectorAll(".setting-link[data-info]").forEach(x=>x.onclick=()=>alert(x.dataset.info));on("openHelpModalButton","onclick",()=>openModal("help"));
 }
 function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["通常営業","臨時休業","休業","昼のみ営業","夜のみ営業","貸切"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||defaultState()}catch{return defaultState()}}
@@ -65,12 +71,7 @@ function migrateOld(){
  state.staff.forEach((p,i)=>{if(p.order==null)p.order=i;if(!Array.isArray(p.workTypes)){p.workTypes=p.workType==="both"?["lunch","dinner"]:[p.workType||"lunch"]}p.workTypes=p.workTypes.filter(t=>state.categories.some(c=>c.id===t));if(!p.workTypes.length)p.workTypes=[state.categories[0].id]});
  state.shifts.forEach(s=>{if(!state.categories.some(c=>c.id===s.type))s.type=state.categories[0].id;if(!s.staffOverrides||typeof s.staffOverrides!=="object")s.staffOverrides={include:[],exclude:[]};if(!Array.isArray(s.staffOverrides.include))s.staffOverrides.include=[];if(!Array.isArray(s.staffOverrides.exclude))s.staffOverrides.exclude=[];if(typeof s.showHeadcount!=="boolean")s.showHeadcount=false});sortStaff()
 }
-function switchView(name){["shifts","staff","settings","announcements","data","appSettings"].forEach(v=>$(v+"View").classList.toggle("hidden",v!==name));document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));updateNewShiftButtonVisibility(name)}
-function updateNewShiftButtonVisibility(currentView){
- const view=currentView||[...document.querySelectorAll(".tab-button")].find(b=>b.classList.contains("active"))?.dataset.view;
- const detailOpen=$("shiftsView")?.classList.contains("detail-open");
- $("openShiftModalButton")?.classList.toggle("hidden",view!=="shifts"||!!detailOpen);
-}
+function switchView(name){["shifts","staff","settings","announcements","data","appSettings"].forEach(v=>$(v+"View").classList.toggle("hidden",v!==name));els.detailPanel.classList.toggle("hidden",!(name==="shifts"&&selectedShiftId));document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.view===name))}
 function openModal(name){$(name+"Modal").classList.remove("hidden")}
 function closeModal(name){$(name+"Modal").classList.add("hidden")}
 function updateFirstSetupPanel(){
@@ -90,6 +91,7 @@ function updateFirstSetupPanel(){
   if(createBtn)createBtn.classList.add("hidden");
  }
  panel.classList.toggle("hidden",state.shifts.length>0);
+ panel.classList.toggle("panel-welcome",state.staff.length===0);
  els.emptyMessage.classList.add("hidden");
 }
 function renderAll(){renderTypeSelects();renderShiftList();renderStaffList();renderCategoryList();renderAutoBackupList();renderAnnouncementList();updateFirstSetupPanel();if(selectedShiftId)renderDetail()}
@@ -164,6 +166,7 @@ function copyShiftInto(source,target){
 function renderShiftList(){
  els.shiftList.innerHTML="";
  els.emptyMessage.classList.toggle("hidden",state.shifts.length>0);
+ $("shiftListHeaderRow")?.classList.toggle("hidden",state.shifts.length===0);
  state.shifts.forEach(s=>{
   const c=document.createElement("article");c.className="shift-card";c.tabIndex=0;
   const sent=s.lineSharedAt?'<p class="sent-label"><span>LINE</span>で送信済み</p>':'';
@@ -174,8 +177,8 @@ function renderShiftList(){
   els.shiftList.appendChild(c)
  })
 }
-function openDetail(i){selectedShiftId=i;renderDetail();els.detailPanel.classList.remove("hidden");$("shiftsView").classList.add("detail-open");updateNewShiftButtonVisibility();window.scrollTo({top:0,behavior:"auto"})}
-function closeDetail(){selectedShiftId=null;els.detailPanel.classList.add("hidden");$("shiftsView").classList.remove("detail-open");updateNewShiftButtonVisibility()}
+function openDetail(i){selectedShiftId=i;renderDetail();els.detailPanel.classList.remove("hidden");$("shiftsView").classList.add("detail-open");window.scrollTo({top:0,behavior:"auto"})}
+function closeDetail(){selectedShiftId=null;els.detailPanel.classList.add("hidden");$("shiftsView").classList.remove("detail-open")}
 function selected(){return state.shifts.find(s=>s.id===selectedShiftId)}
 function shiftGroupIds(shift){if(Array.isArray(shift?.groups)&&shift.groups.length)return shift.groups.filter(Boolean);if(shift?.type)return [shift.type];return []}
 function shiftGroupSummary(shift){const groups=shiftGroupIds(shift);return groups.length?groups.map(id=>categoryName(id)).join(" / "):categoryName(shift?.type)}
@@ -305,12 +308,13 @@ function preparePrintLayout(){
  document.body.classList.toggle("print-ultra",dayCount>27||rowCount>21);
 }
 function clearPrintLayout(){
- document.body.classList.remove("print-dense","print-ultra","printing-announcement","announcement-print-dense","announcement-print-ultra");
+ document.body.classList.remove("print-dense","print-ultra");
 }
 window.addEventListener("beforeprint",preparePrintLayout);
 window.addEventListener("afterprint",clearPrintLayout);
 function exportPdf(){
  if(!selectedShiftId)return alert("PDFにするシフト表を開いてください。");
+ document.body.classList.remove("printing-announcement","announcement-print-dense","announcement-print-ultra");
  preparePrintLayout();
  window.print();
 }
@@ -404,9 +408,10 @@ function renderShiftStaffChecklist(useDefaults){
  const ordered=[...state.staff].sort((a,b)=>(b.isManager-a.isManager)||(a.order-b.order));
  ordered.forEach((p,idx)=>{
   const checked=useDefaults?getShiftStaff(s).some(x=>x.id===p.id):previousChecked.has(p.id);
+  const outOfGroup=!staffMatchesShift(p,s);
   const row=document.createElement("div");
-  row.className="shift-staff-check-row";
-  row.innerHTML=`<label><input type="checkbox" value="${p.id}" ${checked?"checked":""}><span><strong>${esc(p.name)}</strong><small>${esc(workTypeLabel(p))}</small></span></label><div class="staff-actions"><button type="button" class="small-button up" ${idx===0?"disabled":""}>↑</button><button type="button" class="small-button down" ${idx===ordered.length-1?"disabled":""}>↓</button></div>`;
+  row.className="shift-staff-check-row"+(outOfGroup?" out-of-group":"");
+  row.innerHTML=`<label><input type="checkbox" value="${p.id}" ${checked?"checked":""}><span><strong>${esc(p.name)}</strong><small>${esc(workTypeLabel(p))}${outOfGroup?'<span class="out-of-group-badge">グループ外</span>':""}</small></span></label><div class="staff-actions"><button type="button" class="small-button up" ${idx===0?"disabled":""}>↑</button><button type="button" class="small-button down" ${idx===ordered.length-1?"disabled":""}>↓</button></div>`;
   row.querySelector(".up").onclick=()=>{moveStaff(state.staff.findIndex(x=>x.id===p.id),-1);renderShiftStaffChecklist(false)};
   row.querySelector(".down").onclick=()=>{moveStaff(state.staff.findIndex(x=>x.id===p.id),1);renderShiftStaffChecklist(false)};
   els.shiftStaffChecklist.appendChild(row);
@@ -670,7 +675,7 @@ function exportAnnouncementPdf(annId){
  const a=state.announcements.find(x=>x.id===annId);if(!a)return;
  $("announcementPrintArea").innerHTML=renderAnnouncementCardHtml(a);
  const rowCount=announcementDayEntries(a).length;
- document.body.classList.remove("announcement-print-dense","announcement-print-ultra");
+ document.body.classList.remove("print-dense","print-ultra","announcement-print-dense","announcement-print-ultra");
  if(rowCount>22)document.body.classList.add("announcement-print-ultra");
  else if(rowCount>12)document.body.classList.add("announcement-print-dense");
  document.body.classList.add("printing-announcement");
@@ -710,7 +715,7 @@ function saveStaff(e){
  }
 }
 function sortStaff(){state.staff.sort((a,b)=>(b.isManager-a.isManager)||(a.order-b.order));state.staff.forEach((s,i)=>s.order=i)}
-function renderStaffList(){els.staffList.innerHTML="";els.masterStaffEmptyMessage.classList.toggle("hidden",state.staff.length>0);state.staff.forEach((p,i)=>{const r=document.createElement("div");r.className="staff-row";r.innerHTML=`<div><span class="staff-name">${esc(p.name)}</span>${p.isManager?'<span class="manager-mark">店長</span>':''}</div><div class="staff-actions"><button class="small-button up" ${i===0?'disabled':''}>↑</button><button class="small-button down" ${i===state.staff.length-1?'disabled':''}>↓</button><button class="small-button edit">編集</button><button class="danger-button del">削除</button></div>`;r.querySelector(".edit").onclick=()=>openStaffModal(p);r.querySelector(".del").onclick=()=>deleteStaff(p);r.querySelector(".up").onclick=()=>moveStaff(i,-1);r.querySelector(".down").onclick=()=>moveStaff(i,1);els.staffList.appendChild(r)})}
+function renderStaffList(){els.staffList.innerHTML="";els.masterStaffEmptyMessage.classList.toggle("hidden",state.staff.length>0);state.staff.forEach((p,i)=>{const r=document.createElement("div");r.className="staff-row";r.innerHTML=`<div><span class="staff-name">${esc(p.name)}</span>${p.isManager?'<span class="manager-mark">店長</span>':''}</div><div class="staff-actions"><button class="small-button up" ${i===0?'disabled':''}>↑</button><button class="small-button down" ${i===state.staff.length-1?'disabled':''}>↓</button><button class="small-button edit">編集</button><button class="danger-button del">削除</button></div>`;r.querySelector(".edit").onclick=()=>openStaffModal(p);r.querySelector(".del").onclick=()=>deleteStaff(p);r.querySelector(".up").onclick=()=>moveStaff(i,-1);r.querySelector(".down").onclick=()=>moveStaff(i,1);els.staffList.appendChild(r)});$("staffToShiftGuide")?.classList.toggle("hidden",state.staff.length===0)}
 function moveStaff(i,d){const j=i+d;if(j<0||j>=state.staff.length)return;[state.staff[i],state.staff[j]]=[state.staff[j],state.staff[i]];state.staff.forEach((s,k)=>{s.order=k;s.isManager=k===0&&s.isManager});save();renderAll()}
 function deleteStaff(p){if(!confirm(`「${p.name}」を削除しますか？\n過去のシフト入力も削除されます。`))return;state.staff=state.staff.filter(x=>x.id!==p.id);state.shifts.forEach(s=>{delete s.assignments[p.id];if(s.staffOverrides){s.staffOverrides.include=s.staffOverrides.include.filter(x=>x!==p.id);s.staffOverrides.exclude=s.staffOverrides.exclude.filter(x=>x!==p.id)}});save();renderAll();toast("スタッフを削除しました")}
 function exportBackup(){const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`シンプルシフト表_バックアップ_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)}
@@ -723,6 +728,21 @@ function renderStaffTypeChecklist(selectedTypes=[]){els.staffWorkTypes.innerHTML
 function workTypeLabel(p){return (p.workTypes||[]).map(categoryName).join("・")||"未設定"}
 function slugifyCategory(name){const base=name.toLowerCase().replace(/[^a-z0-9\u3040-\u30ff\u3400-\u9fff]+/g,"-").replace(/^-+|-+$/g,"");return (base||"type")+"-"+Date.now().toString(36)}
 function addCategory(){const name=els.newCategoryName.value.trim();if(!name)return alert("シフト用グループ名を入力してください。");if(state.categories.some(c=>c.name===name))return alert("同じシフト用グループ名が登録されています.");const category={id:slugifyCategory(name),name};state.categories.push(category);state.customOptions[category.id]=[];els.newCategoryName.value="";save();renderAll();toast(`「${name}」を追加しました`)}
+function addStaffModalGroup(){
+ const input=$("newStaffGroupName");
+ const name=input.value.trim();
+ if(!name)return alert("シフト用グループ名を入力してください。");
+ if(state.categories.some(c=>c.name===name))return alert("同じシフト用グループ名が登録されています。");
+ const current=[...els.staffWorkTypes.querySelectorAll("input:checked")].map(x=>x.value);
+ const category={id:slugifyCategory(name),name};
+ state.categories.push(category);
+ state.customOptions[category.id]=[];
+ input.value="";
+ save();
+ renderStaffTypeChecklist([...current,category.id]);
+ renderCategoryList();
+ toast(`「${name}」を追加しました`);
+}
 function renderCategoryList(){
  if(!els.categoryList)return;
  els.categoryList.innerHTML="";
