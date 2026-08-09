@@ -219,6 +219,7 @@ html{-webkit-text-size-adjust:100%;touch-action:manipulation}body{padding-bottom
 .shift-table th.holiday,.shift-table th.holiday *,.shift-table th.sunday,.shift-table th.sunday *{color:var(--danger)!important}
 .shift-table th.saturday,.shift-table th.saturday *{color:var(--blue)!important}
 .shift-table th.holiday,.shift-table th.sunday,.shift-table th.saturday{font-weight:900}
+.shift-table th .day-status-select{color:var(--ink)!important}
 
 .headcount-row td:first-child{background:#fff7d6!important}
 .headcount-row td{background:#fff9e7!important}
