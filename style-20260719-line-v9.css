@@ -493,6 +493,6 @@ body{background:var(--bg);padding-bottom:calc(78px + env(safe-area-inset-bottom)
 .modal-card{max-height:90dvh!important}
 body.modal-open{position:fixed!important;left:0!important;right:0!important;overflow:hidden!important}
 @media(max-width:700px){
-  .modal:not(.hidden){padding:6px!important}
-  .modal-card{width:100%!important}
+  .modal:not(.hidden){padding:0!important}
+  .modal-card{width:100%!important;max-height:100dvh!important;border-radius:0!important}
 }
