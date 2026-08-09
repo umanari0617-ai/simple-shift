@@ -8,7 +8,7 @@ const els={shiftList:$("shiftList"),emptyMessage:$("emptyMessage"),detailPanel:$
 init();
 function init(){migrateOld();bind();renderAll();save()}
 function bind(){
- on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("pdfButton","onclick",exportPdf);on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("addStaffGroupButton","onclick",addStaffModalGroup);if($("newStaffGroupName"))$("newStaffGroupName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStaffModalGroup()}});on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};
+ on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("pdfButton","onclick",exportPdf);on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("toggleDayStatusButton","onclick",toggleDayStatus);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("addStaffGroupButton","onclick",addStaffModalGroup);if($("newStaffGroupName"))$("newStaffGroupName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStaffModalGroup()}});on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};
  on("goToNewShiftButton","onclick",()=>{switchView("shifts");startNewShift()});
  on("createShiftButton","onclick",()=>startNewShift());
  on("openAnnouncementModalButton","onclick",()=>openAnnouncementModal());if($("announcementTemplate"))$("announcementTemplate").onchange=updateAnnouncementFieldsForTemplate;if($("announcementStartDate"))$("announcementStartDate").onchange=()=>renderAnnouncementDayStatusList(false);if($("announcementEndDate"))$("announcementEndDate").onchange=()=>renderAnnouncementDayStatusList(false);if($("announcementForm"))$("announcementForm").onsubmit=saveAnnouncement;on("addAnnouncementStatusButton","onclick",addAnnouncementStatus);if($("newAnnouncementStatusName"))$("newAnnouncementStatusName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addAnnouncementStatus()}});
@@ -20,7 +20,7 @@ function bind(){
  });
  document.querySelectorAll(".tab-button").forEach(x=>x.onclick=()=>switchView(x.dataset.view));document.querySelectorAll(".setting-link[data-info]").forEach(x=>x.onclick=()=>alert(x.dataset.info));on("openHelpModalButton","onclick",()=>openModal("help"));
 }
-function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["通常営業","臨時休業","休業","昼のみ営業","夜のみ営業","貸切"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
+function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["営業","休業","臨時休業"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||defaultState()}catch{return defaultState()}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));autoBackup()}
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
@@ -62,7 +62,8 @@ function restoreAutoBackup(entry){
 function id(){return crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random()}
 function migrateOld(){
  if(!Array.isArray(state.staff))state.staff=[];if(!Array.isArray(state.shifts))state.shifts=[];if(!Array.isArray(state.announcements))state.announcements=[];
- if(!Array.isArray(state.announcementStatuses)||!state.announcementStatuses.length)state.announcementStatuses=["通常営業","臨時休業","休業","昼のみ営業","夜のみ営業","貸切"];
+ if(!Array.isArray(state.announcementStatuses)||!state.announcementStatuses.length)state.announcementStatuses=["営業","休業","臨時休業"];
+ if(!state.dayStatusUnified){state.announcementStatuses=["営業","休業","臨時休業"];state.dayStatusUnified=true;}
  if(!Array.isArray(state.announcementTemplates)||!state.announcementTemplates.length)state.announcementTemplates=["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"];
  if(!Array.isArray(state.categories)||!state.categories.length)state.categories=[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}];
  state.categories=state.categories.filter(c=>c&&c.id&&c.name);
@@ -350,6 +351,8 @@ function renderDetail(){
  els.staffEmptyMessage.classList.toggle("hidden",staff.length>0);
  $("copyChangeNote")?.classList.toggle("hidden",!s.copySnapshot);
  const dates=dateRange(s.startDate,s.endDate);
+ const showDayStatus=s.showDayStatus!==false;
+ $("toggleDayStatusButton").textContent=showDayStatus?"営業状態を非表示":"営業状態を表示";
  let h='<thead><tr><th>名前</th>';
  dates.forEach(d=>{
   const w=new Date(d+"T00:00:00").getDay();
@@ -359,7 +362,8 @@ function renderDetail(){
   else if(w===0)classes.push("sunday");
   else if(w===6)classes.push("saturday");
   const status=getShiftDayStatus(s,d);
-  h+=`<th class="${classes.join(" ")}"><div class="date-header-cell"><div class="date-label">${headerDate(d)}</div><div class="day-status-wrap"><select class="day-status-select" data-date="${d}">${["営業","休業","臨時休業"].map(option=>`<option value="${option}" ${option===status?"selected":""}>${option}</option>`).join("")}</select><span class="print-day-status">${esc(status)}</span></div></div></th>`;
+  const statusHtml=showDayStatus?`<div class="day-status-wrap"><select class="day-status-select" data-date="${d}">${["営業","休業","臨時休業"].map(option=>`<option value="${option}" ${option===status?"selected":""}>${option}</option>`).join("")}</select><span class="print-day-status">${esc(status)}</span></div>`:"";
+  h+=`<th class="${classes.join(" ")}"><div class="date-header-cell"><div class="date-label">${headerDate(d)}</div>${statusHtml}</div></th>`;
  });
  h+="</tr></thead><tbody>";
  staff.forEach((p,rowIndex)=>{
@@ -399,6 +403,7 @@ function renderDetail(){
 }
 function isWorkingAssignment(value){const v=String(value||"").trim();if(!v)return false;if(v==="休"||v==="休み"||v.includes("定休日")||v.includes("休業"))return false;return true}
 function toggleHeadcount(){const s=selected();if(!s)return;s.showHeadcount=!s.showHeadcount;save();renderDetail()}
+function toggleDayStatus(){const s=selected();if(!s)return;s.showDayStatus=s.showDayStatus===false;save();renderDetail()}
 function openAssignment(staffId,date){const s=selected(),p=state.staff.find(x=>x.id===staffId);if(!s||!p)return;editingCell={staffId,date};els.assignmentTitle.textContent=p.name;els.assignmentSubtitle.textContent=longDate(date);renderAssignmentChoices();openModal("assignment");els.customAssignmentInput.focus()}
 function baseChoices(type){return [["","未入力"]]}
 function seedAssignmentDefaults(catId){if(!Array.isArray(state.customOptions[catId]))state.customOptions[catId]=[];["休","○"].forEach(v=>{if(!state.customOptions[catId].includes(v))state.customOptions[catId].unshift(v)})}
@@ -480,11 +485,11 @@ function copyPrevious(){
 }
 function clearShift(){const s=selected();if(s&&confirm("このシフト表の入力内容をすべて消去しますか？")){s.assignments={};save();renderDetail();toast("入力を全消去しました")}}
 
-const ANNOUNCEMENT_DEFAULT_STATUS={"臨時休業":"臨時休業","夏季休暇":"臨時休業","年末年始":"臨時休業","貸切":"貸切","ランチ休業":"夜のみ営業","ディナー休業":"昼のみ営業"};
+const ANNOUNCEMENT_DEFAULT_STATUS={"臨時休業":"臨時休業","夏季休暇":"休業","年末年始":"休業","貸切":"臨時休業","ランチ休業":"臨時休業","ディナー休業":"臨時休業"};
 function announcementStatusTextColor(name){return (name==="休業"||name==="臨時休業")?"#c62828":"#292421"}
 function announcementPeriodText(start,end){if(!start)return "";if(!end||end===start)return longDate(start);return `${longDate(start)}～${longDate(end)}`}
 function isConsecutiveDate(prev,next){return new Date(next+"T00:00:00")-new Date(prev+"T00:00:00")===86400000}
-function announcementDayEntries(a){if(a.template==="営業時間変更")return [];return dateRange(a.startDate,a.endDate).map(d=>({date:d,status:a.dayStatuses?.[d]||"通常営業"}))}
+function announcementDayEntries(a){if(a.template==="営業時間変更")return [];return dateRange(a.startDate,a.endDate).map(d=>({date:d,status:a.dayStatuses?.[d]||"営業"}))}
 function buildAnnouncementText(a){
  if(a.template==="営業時間変更"){
   const period=announcementPeriodText(a.startDate,a.endDate);
