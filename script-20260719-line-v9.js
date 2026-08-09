@@ -68,6 +68,13 @@ function migrateOld(){
  state.categories=state.categories.filter(c=>c&&c.id&&c.name);
  if(!state.customOptions||typeof state.customOptions!=="object")state.customOptions={};
  state.categories.forEach(c=>{if(!Array.isArray(state.customOptions[c.id]))state.customOptions[c.id]=[];state.customOptions[c.id]=[...new Set(state.customOptions[c.id].map(v=>String(v).trim()).filter(Boolean))]});
+ if(!state.assignmentDefaultsSeeded){
+  state.categories.forEach(c=>{
+   const defaults=c.id==="dinner"?["休","18:30","18:15","18:00","17:45","17:30","17:00"]:["休","○"];
+   defaults.forEach(v=>{if(!state.customOptions[c.id].includes(v))state.customOptions[c.id].unshift(v)});
+  });
+  state.assignmentDefaultsSeeded=true;
+ }
  state.staff.forEach((p,i)=>{if(p.order==null)p.order=i;if(!Array.isArray(p.workTypes)){p.workTypes=p.workType==="both"?["lunch","dinner"]:[p.workType||"lunch"]}p.workTypes=p.workTypes.filter(t=>state.categories.some(c=>c.id===t));if(!p.workTypes.length)p.workTypes=[state.categories[0].id]});
  state.shifts.forEach(s=>{if(!state.categories.some(c=>c.id===s.type))s.type=state.categories[0].id;if(!s.staffOverrides||typeof s.staffOverrides!=="object")s.staffOverrides={include:[],exclude:[]};if(!Array.isArray(s.staffOverrides.include))s.staffOverrides.include=[];if(!Array.isArray(s.staffOverrides.exclude))s.staffOverrides.exclude=[];if(typeof s.showHeadcount!=="boolean")s.showHeadcount=false});sortStaff()
 }
@@ -393,7 +400,8 @@ function renderDetail(){
 function isWorkingAssignment(value){const v=String(value||"").trim();if(!v)return false;if(v==="休"||v==="休み"||v.includes("定休日")||v.includes("休業"))return false;return true}
 function toggleHeadcount(){const s=selected();if(!s)return;s.showHeadcount=!s.showHeadcount;save();renderDetail()}
 function openAssignment(staffId,date){const s=selected(),p=state.staff.find(x=>x.id===staffId);if(!s||!p)return;editingCell={staffId,date};els.assignmentTitle.textContent=p.name;els.assignmentSubtitle.textContent=longDate(date);renderAssignmentChoices();openModal("assignment");els.customAssignmentInput.focus()}
-function baseChoices(type){return type==="dinner"?[["","未入力"],["17:00","17:00"],["17:30","17:30"],["17:45","17:45"],["18:00","18:00"],["18:15","18:15"],["18:30","18:30"],["休","休"]]:[["","未入力"],["○","○ 出勤"],["休","休"]]}
+function baseChoices(type){return [["","未入力"]]}
+function seedAssignmentDefaults(catId){if(!Array.isArray(state.customOptions[catId]))state.customOptions[catId]=[];["休","○"].forEach(v=>{if(!state.customOptions[catId].includes(v))state.customOptions[catId].unshift(v)})}
 function renderAssignmentChoices(){const s=selected();if(!s||!editingCell)return;els.assignmentOptions.innerHTML="";const current=s.assignments?.[editingCell.staffId]?.[editingCell.date]||"",standard=baseChoices(s.type),registered=state.customOptions[s.type]||[],standardValues=new Set(standard.map(([v])=>v));const choices=[...standard,...registered.filter(v=>!standardValues.has(v)).map(v=>[v,v])];choices.forEach(([v,l])=>{const b=document.createElement("button");b.type="button";b.className="assignment-option"+(v===current?" selected":"");b.textContent=l;b.onclick=()=>setAssignment(v);els.assignmentOptions.appendChild(b)});els.customAssignmentInput.value=choices.some(([v])=>v===current)?"":current;renderRegisteredSettings(s.type)}
 function renderRegisteredSettings(type){const items=state.customOptions[type]||[];els.registeredAssignmentSettings.classList.toggle("hidden",items.length===0);els.registeredAssignmentList.innerHTML="";items.forEach((value,index)=>{const row=document.createElement("div");row.className="registered-assignment-row";row.innerHTML=`<span>${esc(value)}</span><div><button type="button" class="mini-option-button up" ${index===0?"disabled":""}>↑</button><button type="button" class="mini-option-button down" ${index===items.length-1?"disabled":""}>↓</button><button type="button" class="mini-option-button delete">削除</button></div>`;row.querySelector(".up").onclick=()=>moveCustomOption(type,index,-1);row.querySelector(".down").onclick=()=>moveCustomOption(type,index,1);row.querySelector(".delete").onclick=()=>deleteCustomOption(type,value);els.registeredAssignmentList.appendChild(row)})}
 function setAssignment(v){const s=selected(),{staffId,date}=editingCell;if(!s.assignments[staffId])s.assignments[staffId]={};if(v)s.assignments[staffId][date]=v;else delete s.assignments[staffId][date];if(Object.keys(s.assignments[staffId]).length===0)delete s.assignments[staffId];save();closeModal("assignment");renderDetail()}
@@ -742,7 +750,7 @@ function renderShiftGroupChecklist(selectedGroups=[]){if(!els.shiftGroupChecklis
 function renderStaffTypeChecklist(selectedTypes=[]){els.staffWorkTypes.innerHTML=state.categories.map(c=>`<label class="check-label"><input type="checkbox" value="${esc(c.id)}" ${selectedTypes.includes(c.id)?"checked":""}>${esc(c.name)}</label>`).join("")}
 function workTypeLabel(p){return (p.workTypes||[]).map(categoryName).join("・")||"未設定"}
 function slugifyCategory(name){const base=name.toLowerCase().replace(/[^a-z0-9\u3040-\u30ff\u3400-\u9fff]+/g,"-").replace(/^-+|-+$/g,"");return (base||"type")+"-"+Date.now().toString(36)}
-function addCategory(){const name=els.newCategoryName.value.trim();if(!name)return alert("シフト用グループ名を入力してください。");if(state.categories.some(c=>c.name===name))return alert("同じシフト用グループ名が登録されています.");const category={id:slugifyCategory(name),name};state.categories.push(category);state.customOptions[category.id]=[];els.newCategoryName.value="";save();renderAll();toast(`「${name}」を追加しました`)}
+function addCategory(){const name=els.newCategoryName.value.trim();if(!name)return alert("シフト用グループ名を入力してください。");if(state.categories.some(c=>c.name===name))return alert("同じシフト用グループ名が登録されています.");const category={id:slugifyCategory(name),name};state.categories.push(category);state.customOptions[category.id]=[];seedAssignmentDefaults(category.id);els.newCategoryName.value="";save();renderAll();toast(`「${name}」を追加しました`)}
 function addStaffModalGroup(){
  const input=$("newStaffGroupName");
  const name=input.value.trim();
@@ -752,6 +760,7 @@ function addStaffModalGroup(){
  const category={id:slugifyCategory(name),name};
  state.categories.push(category);
  state.customOptions[category.id]=[];
+ seedAssignmentDefaults(category.id);
  input.value="";
  save();
  renderStaffTypeChecklist([...current,category.id]);
