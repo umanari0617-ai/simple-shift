@@ -498,3 +498,4 @@ body.modal-open{position:fixed!important;left:0!important;right:0!important;over
   .modal-card{width:100%!important;max-height:100dvh!important;border-radius:0!important}
 }
 #copyChangeNote:not(.hidden){display:block!important;margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.4}
+@media print{.detail-toolbar,.copy-previous-row,#detailPanel .section-title-row>button{display:none!important}}
