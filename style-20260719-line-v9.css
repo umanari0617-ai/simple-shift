@@ -492,3 +492,7 @@ body{background:var(--bg);padding-bottom:calc(78px + env(safe-area-inset-bottom)
 .modal:not(.hidden){display:flex!important;align-items:center!important;justify-content:center!important;height:100dvh!important;max-height:100dvh!important;padding:18px!important;box-sizing:border-box!important}
 .modal-card{max-height:90dvh!important}
 body.modal-open{position:fixed!important;left:0!important;right:0!important;overflow:hidden!important}
+@media(max-width:700px){
+  .modal:not(.hidden){padding:6px!important}
+  .modal-card{width:100%!important}
+}
