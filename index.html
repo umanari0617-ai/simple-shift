@@ -193,6 +193,7 @@
       <input type="hidden" id="shiftId">
       <label for="shiftName">シフト名</label><input id="shiftName" type="text" placeholder="例：8月ランチ前期" required>
       <label>シフト用グループ（複数選択できます）</label>
+      <p class="field-benefit-note">複数のグループに当てはまる場合は、いくつでも選べます。</p>
       <div id="shiftGroupChecklist" class="work-type-checklist"></div>
       <label for="startDate">開始日</label><input id="startDate" type="date" required>
       <label for="endDate">終了日</label><input id="endDate" type="date" required>
@@ -274,6 +275,10 @@
       <label class="check-label"><input id="isManager" type="checkbox">店長として一番上に表示</label>
       <div class="form-actions"><button type="button" class="secondary-button" data-close="staff">キャンセル</button><button type="submit" class="primary-button">保存</button></div>
     </form>
+    <div id="staffModalToShiftGuide" class="benefit-lead hidden">
+      <p>スタッフ登録が完了したら「＋新しいシフトを作成」にすすみましょう。</p>
+      <button id="staffModalCreateShiftButton" class="primary-button full-button" type="button">＋ 新しいシフトを作成</button>
+    </div>
   </div>
 </div>
 
