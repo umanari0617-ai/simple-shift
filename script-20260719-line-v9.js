@@ -1,5 +1,6 @@
 const KEY="umanariShiftAppV2"; // 旧版データをそのまま引き継ぐ
 const BACKUP_KEY="umanariShiftAppV2_autoBackups";
+const isNativeApp=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()); // iPhone/iPadアプリ内はwindow.print()が動かないためPDFボタンを隠す
 const MAX_AUTO_BACKUPS=30;
 let state=load();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;
 const $=id=>document.getElementById(id);
@@ -8,7 +9,7 @@ const els={shiftList:$("shiftList"),emptyMessage:$("emptyMessage"),detailPanel:$
 init();
 function init(){migrateOld();bind();renderAll();save()}
 function bind(){
- on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("pdfButton","onclick",exportPdf);on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("toggleDayStatusButton","onclick",toggleDayStatus);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("addStaffGroupButton","onclick",addStaffModalGroup);if($("newStaffGroupName"))$("newStaffGroupName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStaffModalGroup()}});on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};
+ on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("pdfButton","onclick",exportPdf);on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("toggleDayStatusButton","onclick",toggleDayStatus);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("addStaffGroupButton","onclick",addStaffModalGroup);if($("newStaffGroupName"))$("newStaffGroupName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStaffModalGroup()}});on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;on("openDataMigrationModalButton","onclick",()=>openModal("dataMigration"));on("migrationExportButton","onclick",exportBackup);if($("migrationImportInput"))$("migrationImportInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};
  on("goToNewShiftButton","onclick",()=>{switchView("shifts");startNewShift()});
  on("staffModalCreateShiftButton","onclick",()=>{closeModal("staff");switchView("shifts");startNewShift()});
  on("createShiftButton","onclick",()=>startNewShift());
@@ -20,6 +21,9 @@ function bind(){
   closeModal(name);
  });
  document.querySelectorAll(".tab-button").forEach(x=>x.onclick=()=>switchView(x.dataset.view));document.querySelectorAll(".setting-link[data-info]").forEach(x=>x.onclick=()=>alert(x.dataset.info));on("openHelpModalButton","onclick",()=>openModal("help"));
+ on("contactButton","onclick",()=>{window.location.href=`mailto:jinqizhiren@gmail.com?subject=${encodeURIComponent("シンプルシフト表 飲食店版のお問い合わせ")}`});
+ on("rateAppButton","onclick",()=>{window.open("https://apps.apple.com/app/id6793560808?action=write-review","_blank")});
+ if(isNativeApp)$("pdfButton")?.classList.add("hidden");
 }
 function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["営業","休業","臨時休業"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||defaultState()}catch{return defaultState()}}
@@ -363,7 +367,8 @@ function renderDetail(){
   else if(w===0)classes.push("sunday");
   else if(w===6)classes.push("saturday");
   const status=getShiftDayStatus(s,d);
-  const statusHtml=showDayStatus?`<div class="day-status-wrap"><select class="day-status-select" data-date="${d}">${["営業","休業","臨時休業"].map(option=>`<option value="${option}" ${option===status?"selected":""}>${option}</option>`).join("")}</select><span class="print-day-status">${esc(status)}</span></div>`:"";
+  const statusSelectClass=status==="営業"?"day-status-select":"day-status-select status-off";
+  const statusHtml=showDayStatus?`<div class="day-status-wrap"><select class="${statusSelectClass}" data-date="${d}">${["営業","休業","臨時休業"].map(option=>`<option value="${option}" ${option===status?"selected":""}>${option}</option>`).join("")}</select><span class="print-day-status">${esc(status)}</span></div>`:"";
   h+=`<th class="${classes.join(" ")}"><div class="date-header-cell"><div class="date-label">${headerDate(d)}</div>${statusHtml}</div></th>`;
  });
  h+="</tr></thead><tbody>";
@@ -571,14 +576,16 @@ function renderAnnouncementDayStatusList(resetDefaults,seedStatuses){
  const defaultStatus=ANNOUNCEMENT_DEFAULT_STATUS[template]||state.announcementStatuses[0];
  const previous={};
  table.querySelectorAll("select[data-date]").forEach(s=>{previous[s.dataset.date]=s.value});
+ const statusClass=v=>v==="営業"?"announcement-day-select":"announcement-day-select status-off";
  let h="<thead><tr>"+dates.map(d=>`<th>${headerDate(d)}</th>`).join("")+"</tr></thead><tbody><tr>";
  h+=dates.map(d=>{
-  if(seedStatuses&&seedStatuses[d]){const seeded=seedStatuses[d];return `<td><select data-date="${d}" class="announcement-day-select">${state.announcementStatuses.map(s=>`<option value="${esc(s)}" ${s===seeded?"selected":""}>${esc(s)}</option>`).join("")}</select></td>`}
+  if(seedStatuses&&seedStatuses[d]){const seeded=seedStatuses[d];return `<td><select data-date="${d}" class="${statusClass(seeded)}">${state.announcementStatuses.map(s=>`<option value="${esc(s)}" ${s===seeded?"selected":""}>${esc(s)}</option>`).join("")}</select></td>`}
   const current=resetDefaults?defaultStatus:(previous[d]||defaultStatus);
-  return `<td><select data-date="${d}" class="announcement-day-select">${state.announcementStatuses.map(s=>`<option value="${esc(s)}" ${s===current?"selected":""}>${esc(s)}</option>`).join("")}</select></td>`;
+  return `<td><select data-date="${d}" class="${statusClass(current)}">${state.announcementStatuses.map(s=>`<option value="${esc(s)}" ${s===current?"selected":""}>${esc(s)}</option>`).join("")}</select></td>`;
  }).join("");
  h+="</tr></tbody>";
  table.innerHTML=h;
+ table.querySelectorAll("select[data-date]").forEach(s=>{s.onchange=()=>{s.className=statusClass(s.value)}});
 }
 function addAnnouncementStatus(){
  const input=$("newAnnouncementStatusName");
@@ -633,7 +640,7 @@ function saveAnnouncement(e){
 function renderAnnouncementList(){
  const list=$("announcementList");if(!list)return;
  $("announcementEmptyMessage")?.classList.toggle("hidden",state.announcements.length>0);
- list.innerHTML=state.announcements.map(a=>`<div class="setting-item"><div><p class="type-badge">${esc(a.template)}</p><p>${esc(a.text)}</p></div><div class="staff-actions"><button type="button" class="secondary-button edit" data-id="${a.id}">編集</button><button type="button" class="secondary-button line-share" data-id="${a.id}">LINEで送る</button><button type="button" class="secondary-button pdf" data-id="${a.id}">PDF保存</button><button type="button" class="danger-outline-button del" data-id="${a.id}">削除</button></div></div>`).join("");
+ list.innerHTML=state.announcements.map(a=>`<div class="setting-item"><div><p class="type-badge">${esc(a.template)}</p><p>${esc(a.text)}</p></div><div class="staff-actions"><button type="button" class="secondary-button edit" data-id="${a.id}">編集</button><button type="button" class="secondary-button line-share" data-id="${a.id}">LINEで送る</button>${isNativeApp?"":`<button type="button" class="secondary-button pdf" data-id="${a.id}">PDF保存</button>`}<button type="button" class="danger-outline-button del" data-id="${a.id}">削除</button></div></div>`).join("");
  list.querySelectorAll(".edit").forEach(b=>b.onclick=()=>{const a=state.announcements.find(x=>x.id===b.dataset.id);if(a)openAnnouncementModal(a)});
  list.querySelectorAll(".line-share").forEach(b=>b.onclick=()=>shareAnnouncementToLine(b.dataset.id));
  list.querySelectorAll(".pdf").forEach(b=>b.onclick=()=>exportAnnouncementPdf(b.dataset.id));

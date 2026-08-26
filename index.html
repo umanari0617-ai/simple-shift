@@ -143,7 +143,7 @@
           </div>
           <div class="setting-item">
             <div><strong>データ移行</strong><p>機種変更時や別の端末へ、スタッフ・シフト用グループ・シフト表をまとめて移せます。再登録する手間がありません。</p></div>
-            <span class="coming-soon">今後対応</span>
+            <button id="openDataMigrationModalButton" class="secondary-button" type="button">やり方を見る</button>
           </div>
         </div>
       </div>
@@ -169,8 +169,8 @@
         <h3>サポート</h3>
         <div class="settings-list">
           <button id="openHelpModalButton" class="setting-link" type="button"><span><strong>使い方</strong><small>初めてでも迷わない操作ガイド</small></span><span>›</span></button>
-          <button class="setting-link" type="button" data-info="お問い合わせ窓口はApp Store公開時に設定します。"><span><strong>お問い合わせ</strong><small>不具合やご要望を送る</small></span><span>›</span></button>
-          <button class="setting-link" type="button" data-info="App Store公開後に評価画面へ移動できるようにします。"><span><strong>アプリを評価する</strong><small>App Storeで評価を送る</small></span><span>›</span></button>
+          <button id="contactButton" class="setting-link" type="button"><span><strong>お問い合わせ</strong><small>不具合やご要望を送る</small></span><span>›</span></button>
+          <button id="rateAppButton" class="setting-link" type="button"><span><strong>アプリを評価する</strong><small>App Storeで評価を送る</small></span><span>›</span></button>
         </div>
       </div>
 
@@ -206,7 +206,7 @@
 <div id="announcementModal" class="modal hidden" aria-hidden="true">
   <div class="modal-backdrop" data-close="announcement"></div>
   <div class="modal-card">
-    <div class="modal-heading"><h2 id="announcementModalTitle">お知らせを作成</h2><button class="icon-button" data-close="announcement">×</button></div>
+    <div class="modal-heading"><h2 id="announcementModalTitle">お知らせを作成</h2></div>
     <form id="announcementForm">
       <input type="hidden" id="announcementId">
       <label for="announcementTemplate">お知らせのテンプレート</label>
@@ -296,6 +296,22 @@
       <li><strong>データを守る</strong><p>「データ管理」タブの「バックアップ」で、登録内容をファイルに保存できます。機種変更のときも安心です。</p></li>
     </ol>
     <div class="form-actions"><button type="button" class="secondary-button" data-close="help">閉じる</button></div>
+  </div>
+</div>
+
+<div id="dataMigrationModal" class="modal hidden" aria-hidden="true">
+  <div class="modal-backdrop" data-close="dataMigration"></div>
+  <div class="modal-card">
+    <div class="modal-heading"><h2>データ移行のやり方</h2><button class="icon-button" data-close="dataMigration">×</button></div>
+    <ol class="help-steps">
+      <li><strong>今の端末でファイルを保存する</strong><p>下の「①保存する」を押して、バックアップファイルを保存します。</p></li>
+      <li><strong>新しい端末にファイルを送る</strong><p>AirDropやメール、LINEのKeepメモなどで、保存したファイルを新しい端末に送ります。</p></li>
+      <li><strong>新しい端末でファイルを選ぶ</strong><p>新しい端末でこのアプリを開き、下の「②ファイルを選ぶ」から送られてきたファイルを選ぶと、スタッフ・シフト用グループ・シフト表がまとめて引き継がれます。</p></li>
+    </ol>
+    <div class="form-actions">
+      <button id="migrationExportButton" class="secondary-button" type="button">①保存する</button>
+      <label class="secondary-button file-button">②ファイルを選ぶ<input id="migrationImportInput" type="file" accept=".json,application/json"></label>
+    </div>
   </div>
 </div>
 
