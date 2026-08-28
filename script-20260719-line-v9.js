@@ -381,7 +381,7 @@ function renderDetail(){
   else if(w===6)classes.push("saturday");
   const status=getShiftDayStatus(s,d);
   const statusSelectClass=status==="営業"?"day-status-select":"day-status-select status-off";
-  const statusHtml=showDayStatus?`<div class="day-status-wrap"><select class="${statusSelectClass}" data-date="${d}">${["営業","休業","臨時休業"].map(option=>`<option value="${option}" ${option===status?"selected":""}>${option}</option>`).join("")}</select><span class="print-day-status">${esc(status)}</span></div>`:"";
+  const statusHtml=showDayStatus?`<div class="day-status-wrap"><select class="${statusSelectClass}" data-date="${d}">${["営業","休業","臨時休業"].map(option=>`<option value="${option}" ${option===status?"selected":""}>${option}</option>`).join("")}</select><span class="print-day-status${status!=="営業"?" status-off":""}">${esc(status)}</span></div>`:"";
   h+=`<th class="${classes.join(" ")}"><div class="date-header-cell"><div class="date-label">${headerDate(d)}</div>${statusHtml}</div></th>`;
  });
  h+="</tr></thead><tbody>";
