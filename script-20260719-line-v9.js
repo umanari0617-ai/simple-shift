@@ -252,10 +252,12 @@ async function createShiftImageFile(){
  if(!s)throw new Error("シフト表を開いてください。");
  const staff=getShiftStaff(s);
  const dates=dateRange(s.startDate,s.endDate);
- const nameWidth=150,cellWidth=72,rowHeight=44,titleHeight=104,padding=24;
+ const showDayStatus=s.showDayStatus!==false;
+ const nameWidth=150,cellWidth=72,rowHeight=44,statusRowHeight=32,titleHeight=104,padding=24;
  const rowCount=staff.length+(s.showHeadcount?1:0);
+ const statusHeight=showDayStatus?statusRowHeight:0;
  const width=Math.max(900,padding*2+nameWidth+cellWidth*dates.length);
- const height=titleHeight+rowHeight*(rowCount+1)+padding*2;
+ const height=titleHeight+rowHeight*(rowCount+1)+statusHeight+padding*2;
  const scale=Math.min(2,4096/width,4096/height);
  const canvas=document.createElement("canvas");
  canvas.width=Math.round(width*scale);canvas.height=Math.round(height*scale);
@@ -276,8 +278,19 @@ async function createShiftImageFile(){
   ctx.fillStyle=holiday||dow===0?"#cf332d":dow===6?"#2367a8":"#5b3500";
   ctx.font="bold 12px sans-serif";ctx.fillText(headerDate(d).replace("<br>"," ").replace(/[()]/g,""),x+cellWidth/2,top+rowHeight/2);
  });
+ let bodyTop=top+rowHeight;
+ if(showDayStatus){
+  cell(left,bodyTop,nameWidth,statusRowHeight,"#fff4d9");
+  ctx.fillStyle="#5b3500";ctx.textAlign="left";ctx.font="bold 12px sans-serif";ctx.fillText("営業状態",left+10,bodyTop+statusRowHeight/2);
+  dates.forEach((d,i)=>{
+   const x=left+nameWidth+i*cellWidth;cell(x,bodyTop,cellWidth,statusRowHeight,"#fff4d9");
+   const status=getShiftDayStatus(s,d);
+   ctx.textAlign="center";ctx.font="bold 12px sans-serif";ctx.fillStyle=status==="営業"?"#5b3500":"#c62828";ctx.fillText(status,x+cellWidth/2,bodyTop+statusRowHeight/2);
+  });
+  bodyTop+=statusRowHeight;
+ }
  staff.forEach((p,r)=>{
-  const y=top+rowHeight*(r+1);const fill=r%2===0?"#ffffff":"#eef6ff";
+  const y=bodyTop+rowHeight*r;const fill=r%2===0?"#ffffff":"#eef6ff";
   cell(left,y,nameWidth,rowHeight,fill);ctx.fillStyle="#2f2418";ctx.font="bold 14px sans-serif";ctx.textAlign="left";ctx.fillText(p.name,left+10,y+rowHeight/2);
   dates.forEach((d,i)=>{
    const x=left+nameWidth+i*cellWidth;cell(x,y,cellWidth,rowHeight,fill);
@@ -285,7 +298,7 @@ async function createShiftImageFile(){
   });
  });
  if(s.showHeadcount){
-  const y=top+rowHeight*(staff.length+1);cell(left,y,nameWidth,rowHeight,"#fff4d9");ctx.fillStyle="#5b3500";ctx.textAlign="left";ctx.font="bold 13px sans-serif";ctx.fillText("出勤人数",left+10,y+rowHeight/2);
+  const y=bodyTop+rowHeight*staff.length;cell(left,y,nameWidth,rowHeight,"#fff4d9");ctx.fillStyle="#5b3500";ctx.textAlign="left";ctx.font="bold 13px sans-serif";ctx.fillText("出勤人数",left+10,y+rowHeight/2);
   dates.forEach((d,i)=>{
    const x=left+nameWidth+i*cellWidth;cell(x,y,cellWidth,rowHeight,"#fff4d9");
    const count=staff.filter(p=>{const v=s.assignments?.[p.id]?.[d]||"";return v&&v!=="休"}).length;
