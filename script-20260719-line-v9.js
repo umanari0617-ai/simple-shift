@@ -1,6 +1,6 @@
 const KEY="umanariShiftAppV2"; // 旧版データをそのまま引き継ぐ
 const BACKUP_KEY="umanariShiftAppV2_autoBackups";
-const isNativeApp=!!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()); // iPhone/iPadアプリ内はwindow.print()が動かないためPDFボタンを隠す
+const isNativeApp=!!window.Capacitor; // iPhone/iPadアプリ内はwindow.print()が動かないためPDFボタンを隠す（Capacitorのバージョン差でisNativePlatform()が無い場合もあるため、window.Capacitorの有無だけで判定する）
 const MAX_AUTO_BACKUPS=30;
 let state=load();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;
 const $=id=>document.getElementById(id);
