@@ -505,7 +505,8 @@ function copyPrevious(){
 function clearShift(){const s=selected();if(s&&confirm("このシフト表の入力内容をすべて消去しますか？")){s.assignments={};save();renderDetail();toast("入力を全消去しました")}}
 
 const ANNOUNCEMENT_DEFAULT_STATUS={"臨時休業":"臨時休業","夏季休暇":"休業","年末年始":"休業","貸切":"臨時休業","ランチ休業":"臨時休業","ディナー休業":"臨時休業"};
-function announcementStatusTextColor(name){return (name==="休業"||name==="臨時休業")?"#c62828":"#292421"}
+function isOffStatus(name){const saved=state.announcementStatusOff?.[name];return typeof saved==="boolean"?saved:name!=="営業"}
+function announcementStatusTextColor(name){return isOffStatus(name)?"#c62828":"#292421"}
 function announcementPeriodText(start,end){if(!start)return "";if(!end||end===start)return longDate(start);return `${longDate(start)}～${longDate(end)}`}
 function isConsecutiveDate(prev,next){return new Date(next+"T00:00:00")-new Date(prev+"T00:00:00")===86400000}
 function announcementDayEntries(a){if(a.template==="営業時間変更")return [];return dateRange(a.startDate,a.endDate).map(d=>({date:d,status:a.dayStatuses?.[d]||"営業"}))}
@@ -589,7 +590,7 @@ function renderAnnouncementDayStatusList(resetDefaults,seedStatuses){
  const defaultStatus=ANNOUNCEMENT_DEFAULT_STATUS[template]||state.announcementStatuses[0];
  const previous={};
  table.querySelectorAll("select[data-date]").forEach(s=>{previous[s.dataset.date]=s.value});
- const statusClass=v=>v==="営業"?"announcement-day-select":"announcement-day-select status-off";
+ const statusClass=v=>isOffStatus(v)?"announcement-day-select status-off":"announcement-day-select";
  let h="<thead><tr>"+dates.map(d=>`<th>${headerDate(d)}</th>`).join("")+"</tr></thead><tbody><tr>";
  h+=dates.map(d=>{
   if(seedStatuses&&seedStatuses[d]){const seeded=seedStatuses[d];return `<td><select data-date="${d}" class="${statusClass(seeded)}">${state.announcementStatuses.map(s=>`<option value="${esc(s)}" ${s===seeded?"selected":""}>${esc(s)}</option>`).join("")}</select></td>`}
@@ -606,7 +607,10 @@ function addAnnouncementStatus(){
  if(!name)return alert("状態の名前を入力してください。");
  if(state.announcementStatuses.includes(name))return alert("同じ名前の状態がすでに登録されています。");
  state.announcementStatuses.push(name);
+ if(!state.announcementStatusOff||typeof state.announcementStatusOff!="object")state.announcementStatusOff={};
+ state.announcementStatusOff[name]=!!$("newAnnouncementStatusOff")?.checked;
  input.value="";
+ if($("newAnnouncementStatusOff"))$("newAnnouncementStatusOff").checked=false;
  save();renderAnnouncementStatusManageList();renderAnnouncementDayStatusList(false);
  toast(`「${name}」を追加しました`);
 }
@@ -614,11 +618,17 @@ function deleteAnnouncementStatus(name){
  if(state.announcementStatuses.length<=1)return alert("状態は最低1つ必要です。");
  if(!confirm(`「${name}」を削除しますか？`))return;
  state.announcementStatuses=state.announcementStatuses.filter(s=>s!==name);
+ if(state.announcementStatusOff)delete state.announcementStatusOff[name];
  save();renderAnnouncementStatusManageList();renderAnnouncementDayStatusList(false);
 }
 function renderAnnouncementStatusManageList(){
  const list=$("announcementStatusManageList");if(!list)return;
- list.innerHTML=state.announcementStatuses.map(s=>`<div class="registered-assignment-row"><span>${esc(s)}</span><button type="button" class="mini-option-button delete" data-name="${esc(s)}">削除</button></div>`).join("");
+ list.innerHTML=state.announcementStatuses.map(s=>`<div class="registered-assignment-row"><span>${esc(s)}</span><div><label class="check-label" style="margin:0;gap:4px"><input type="checkbox" class="status-off-toggle" data-name="${esc(s)}" ${isOffStatus(s)?"checked":""}>赤字</label><button type="button" class="mini-option-button delete" data-name="${esc(s)}">削除</button></div></div>`).join("");
+ list.querySelectorAll(".status-off-toggle").forEach(c=>c.onchange=()=>{
+  if(!state.announcementStatusOff||typeof state.announcementStatusOff!="object")state.announcementStatusOff={};
+  state.announcementStatusOff[c.dataset.name]=c.checked;
+  save();renderAnnouncementDayStatusList(false);
+ });
  list.querySelectorAll(".delete").forEach(b=>b.onclick=()=>deleteAnnouncementStatus(b.dataset.name));
 }
 function saveAnnouncement(e){
@@ -650,10 +660,17 @@ function saveAnnouncement(e){
   save();closeModal("announcement");renderAnnouncementList();toast("お知らせを作成しました");
  }
 }
+function renderAnnouncementListBody(a){
+ if(a.template==="営業時間変更"){
+  return `<p class="announcement-period">${esc(announcementPeriodText(a.startDate,a.endDate))}</p><p>営業時間を ${esc(a.startTime)}～${esc(a.endTime)} に変更させていただきます。</p>`;
+ }
+ const rows=announcementDayEntries(a).map(e=>`<div class="announcement-day-row"><span>${esc(longDate(e.date))}</span><span class="announcement-day-badge" style="color:${announcementStatusTextColor(e.status)}">${esc(e.status)}</span></div>`).join("");
+ return `<div class="announcement-day-rows">${rows}</div>`;
+}
 function renderAnnouncementList(){
  const list=$("announcementList");if(!list)return;
  $("announcementEmptyMessage")?.classList.toggle("hidden",state.announcements.length>0);
- list.innerHTML=state.announcements.map(a=>`<div class="setting-item"><div><p class="type-badge">${esc(a.template)}</p><p>${esc(a.text)}</p></div><div class="staff-actions"><button type="button" class="secondary-button edit" data-id="${a.id}">編集</button><button type="button" class="secondary-button line-share" data-id="${a.id}">LINEで送る</button>${isNativeApp?"":`<button type="button" class="secondary-button pdf" data-id="${a.id}">PDF保存</button>`}<button type="button" class="danger-outline-button del" data-id="${a.id}">削除</button></div></div>`).join("");
+ list.innerHTML=state.announcements.map(a=>`<div class="setting-item"><div><p class="type-badge">${esc(a.template)}</p>${renderAnnouncementListBody(a)}</div><div class="staff-actions"><button type="button" class="secondary-button edit" data-id="${a.id}">編集</button><button type="button" class="secondary-button line-share" data-id="${a.id}">LINEで送る</button>${isNativeApp?"":`<button type="button" class="secondary-button pdf" data-id="${a.id}">PDF保存</button>`}<button type="button" class="danger-outline-button del" data-id="${a.id}">削除</button></div></div>`).join("");
  list.querySelectorAll(".edit").forEach(b=>b.onclick=()=>{const a=state.announcements.find(x=>x.id===b.dataset.id);if(a)openAnnouncementModal(a)});
  list.querySelectorAll(".line-share").forEach(b=>b.onclick=()=>shareAnnouncementToLine(b.dataset.id));
  list.querySelectorAll(".pdf").forEach(b=>b.onclick=()=>exportAnnouncementPdf(b.dataset.id));
