@@ -2,6 +2,8 @@ const KEY="umanariShiftAppV2"; // 旧版データをそのまま引き継ぐ
 const BACKUP_KEY="umanariShiftAppV2_autoBackups";
 const isNativeApp=!!window.Capacitor; // iPhone/iPadアプリ内はwindow.print()が動かないためPDFボタンを隠す（Capacitorのバージョン差でisNativePlatform()が無い場合もあるため、window.Capacitorの有無だけで判定する）
 const MAX_AUTO_BACKUPS=30;
+const holidayCache={};
+let savedScrollY=0;
 let state=load();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>{const el=$(id);if(el)el[event]=handler;};
@@ -86,7 +88,6 @@ function migrateOld(){
  state.shifts.forEach(s=>{if(!state.categories.some(c=>c.id===s.type))s.type=state.categories[0].id;if(!s.staffOverrides||typeof s.staffOverrides!=="object")s.staffOverrides={include:[],exclude:[]};if(!Array.isArray(s.staffOverrides.include))s.staffOverrides.include=[];if(!Array.isArray(s.staffOverrides.exclude))s.staffOverrides.exclude=[];if(typeof s.showHeadcount!=="boolean")s.showHeadcount=false});sortStaff()
 }
 function switchView(name){["shifts","staff","settings","announcements","data","appSettings"].forEach(v=>$(v+"View").classList.toggle("hidden",v!==name));els.detailPanel.classList.toggle("hidden",!(name==="shifts"&&selectedShiftId));document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.view===name))}
-let savedScrollY=0;
 function openModal(name){
  $(name+"Modal").classList.remove("hidden");
  if(!document.body.classList.contains("modal-open")){
@@ -850,7 +851,6 @@ function fmt(d){const x=new Date(d+"T00:00:00");return `${x.getFullYear()}年${x
 function headerDate(d){const x=new Date(d+"T00:00:00"),w="日月火水木金土"[x.getDay()];return `${x.getMonth()+1}/${x.getDate()}<br>(${w}${isJapaneseHoliday(d)?"・祝":""})`}
 function longDate(d){const x=new Date(d+"T00:00:00"),w="日月火水木金土"[x.getDay()];return `${x.getMonth()+1}月${x.getDate()}日（${w}${isJapaneseHoliday(d)?"・祝":""}）`}
 
-const holidayCache={};
 function isJapaneseHoliday(dateStr){
  const year=Number(dateStr.slice(0,4));
  if(!holidayCache[year])holidayCache[year]=buildJapaneseHolidaySet(year);
