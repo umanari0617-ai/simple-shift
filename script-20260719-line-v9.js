@@ -4,6 +4,7 @@ const isNativeApp=!!window.Capacitor; // iPhone/iPadアプリ内はwindow.print(
 const MAX_AUTO_BACKUPS=30;
 const holidayCache={};
 let savedScrollY=0;
+let autoBackupTimer=null;
 let state=load();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>{const el=$(id);if(el)el[event]=handler;};
@@ -29,7 +30,6 @@ function bind(){
 }
 function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["営業","休業","臨時休業"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||defaultState()}catch{return defaultState()}}
-let autoBackupTimer=null;
 function save(){localStorage.setItem(KEY,JSON.stringify(state));clearTimeout(autoBackupTimer);autoBackupTimer=setTimeout(autoBackup,1200)}
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function loadAutoBackups(){try{const list=JSON.parse(localStorage.getItem(BACKUP_KEY));return Array.isArray(list)?list:[]}catch{return []}}
