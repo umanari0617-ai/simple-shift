@@ -27,7 +27,8 @@ function bind(){
 }
 function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["営業","休業","臨時休業"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||defaultState()}catch{return defaultState()}}
-function save(){localStorage.setItem(KEY,JSON.stringify(state));autoBackup()}
+let autoBackupTimer=null;
+function save(){localStorage.setItem(KEY,JSON.stringify(state));clearTimeout(autoBackupTimer);autoBackupTimer=setTimeout(autoBackup,1200)}
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function loadAutoBackups(){try{const list=JSON.parse(localStorage.getItem(BACKUP_KEY));return Array.isArray(list)?list:[]}catch{return []}}
 function autoBackup(){
@@ -758,27 +759,35 @@ function renderStaffModalRegisteredList(show){
 }
 function saveStaff(e){
  e.preventDefault();
+ const submitBtn=els.staffForm.querySelector('[type="submit"]');
+ if(submitBtn&&submitBtn.disabled)return;
  const name=els.staffName.value.trim();
  if(!name)return;
  const workTypes=[...els.staffWorkTypes.querySelectorAll('input:checked')].map(x=>x.value);
  if(!workTypes.length)return alert("シフト用グループを1つ以上選んでください。");
- const p=state.staff.find(x=>x.id===els.staffId.value);
- const isEditing=!!p;
- if(p){p.name=name;p.workTypes=workTypes;p.isManager=els.isManager.checked}
- else state.staff.push({id:id(),name,workTypes,isManager:els.isManager.checked,order:state.staff.length});
- sortStaff();save();renderAll();
- if(isEditing){
-  closeModal("staff");
-  toast("スタッフを保存しました");
- }else{
-  toast(`${name}さんを登録しました。続けて登録できます`);
-  els.staffForm.reset();
-  els.staffId.value="";
-  $("staffModalTitle").textContent="スタッフ追加";
-  renderStaffTypeChecklist([state.categories[0].id]);
-  els.isManager.checked=false;
-  renderStaffModalRegisteredList(true);
-  els.staffName.focus();
+ if(submitBtn)submitBtn.disabled=true;
+ try{
+  const p=state.staff.find(x=>x.id===els.staffId.value);
+  const isEditing=!!p;
+  if(p){p.name=name;p.workTypes=workTypes;p.isManager=els.isManager.checked}
+  else state.staff.push({id:id(),name,workTypes,isManager:els.isManager.checked,order:state.staff.length});
+  sortStaff();save();renderAll();
+  if(isEditing){
+   closeModal("staff");
+   toast("スタッフを保存しました");
+  }else{
+   toast(`${name}さんを登録しました。続けて登録できます`);
+   els.staffForm.reset();
+   els.staffId.value="";
+   $("staffModalTitle").textContent="スタッフ追加";
+   renderStaffTypeChecklist([state.categories[0].id]);
+   els.isManager.checked=false;
+   renderStaffModalRegisteredList(true);
+   els.staffName.focus();
+  }
+ }finally{
+  const btn=els.staffForm.querySelector('[type="submit"]');
+  if(btn)btn.disabled=false;
  }
 }
 function sortStaff(){state.staff.sort((a,b)=>(b.isManager-a.isManager)||(a.order-b.order));state.staff.forEach((s,i)=>s.order=i)}
