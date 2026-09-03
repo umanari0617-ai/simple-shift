@@ -3,6 +3,7 @@ const BACKUP_KEY="umanariShiftAppV2_autoBackups";
 const isNativeApp=!!window.Capacitor; // iPhone/iPadアプリ内はwindow.print()が動かないためPDFボタンを隠す（Capacitorのバージョン差でisNativePlatform()が無い場合もあるため、window.Capacitorの有無だけで判定する）
 const MAX_AUTO_BACKUPS=30;
 const holidayCache={};
+const TRIAL_DAYS=30;
 let savedScrollY=0;
 let autoBackupTimer=null;
 let state=load();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;
@@ -69,6 +70,8 @@ function restoreAutoBackup(entry){
 }
 function id(){return crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random()}
 function migrateOld(){
+ if(!state.firstLaunchAt)state.firstLaunchAt=new Date().toISOString();
+ if(typeof state.subscriptionActive!=="boolean")state.subscriptionActive=false;
  if(!Array.isArray(state.staff))state.staff=[];if(!Array.isArray(state.shifts))state.shifts=[];if(!Array.isArray(state.announcements))state.announcements=[];
  if(!Array.isArray(state.announcementStatuses)||!state.announcementStatuses.length)state.announcementStatuses=["営業","休業","臨時休業"];
  if(!state.dayStatusUnified){state.announcementStatuses=["営業","休業","臨時休業"];state.dayStatusUnified=true;}
@@ -86,6 +89,25 @@ function migrateOld(){
  }
  state.staff.forEach((p,i)=>{if(p.order==null)p.order=i;if(!Array.isArray(p.workTypes)){p.workTypes=p.workType==="both"?["lunch","dinner"]:[p.workType||"lunch"]}p.workTypes=p.workTypes.filter(t=>state.categories.some(c=>c.id===t));if(!p.workTypes.length)p.workTypes=[state.categories[0].id]});
  state.shifts.forEach(s=>{if(!state.categories.some(c=>c.id===s.type))s.type=state.categories[0].id;if(!s.staffOverrides||typeof s.staffOverrides!=="object")s.staffOverrides={include:[],exclude:[]};if(!Array.isArray(s.staffOverrides.include))s.staffOverrides.include=[];if(!Array.isArray(s.staffOverrides.exclude))s.staffOverrides.exclude=[];if(typeof s.showHeadcount!=="boolean")s.showHeadcount=false});sortStaff()
+}
+function trialDaysLeft(){const elapsedMs=Date.now()-new Date(state.firstLaunchAt).getTime();const leftMs=TRIAL_DAYS*86400000-elapsedMs;return Math.max(0,Math.ceil(leftMs/86400000))}
+function hasFullAccess(){return state.subscriptionActive||trialDaysLeft()>0}
+function guardFullAccess(){if(hasFullAccess())return true;alert("無料期間が終了しました。今までのデータは引き続き閲覧できますが、新規作成・編集をするには月額300円のプランへの登録が必要です。「設定」タブの「利用プラン」からご案内しています。");return false}
+function renderPlanStatus(){
+ const textEl=$("planStatusText"),badgeEl=$("planStatusBadge");if(!textEl||!badgeEl)return;
+ if(state.subscriptionActive){
+  textEl.textContent="ご利用ありがとうございます。すべての機能を利用できます。";
+  badgeEl.textContent="登録済み";
+ }else{
+  const left=trialDaysLeft();
+  if(left>0){
+   textEl.textContent=`無料お試し期間中です。残り${left}日。期間終了後は月額300円で全機能を利用できます（未課金でも閲覧は可能です）。`;
+   badgeEl.textContent="体験期間中";
+  }else{
+   textEl.textContent="無料期間が終了しました。作成済みのデータは閲覧できますが、新規作成・編集には月額300円のプランへの登録が必要です。";
+   badgeEl.textContent="未登録";
+  }
+ }
 }
 function switchView(name){["shifts","staff","settings","announcements","data","appSettings"].forEach(v=>$(v+"View").classList.toggle("hidden",v!==name));els.detailPanel.classList.toggle("hidden",!(name==="shifts"&&selectedShiftId));document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.view===name))}
 function openModal(name){
@@ -124,7 +146,7 @@ function updateFirstSetupPanel(){
  panel.classList.toggle("panel-welcome",state.staff.length===0);
  els.emptyMessage.classList.add("hidden");
 }
-function renderAll(){renderTypeSelects();renderShiftList();renderStaffList();renderCategoryList();renderAutoBackupList();renderAnnouncementList();updateFirstSetupPanel();if(selectedShiftId)renderDetail()}
+function renderAll(){renderTypeSelects();renderShiftList();renderStaffList();renderCategoryList();renderAutoBackupList();renderAnnouncementList();updateFirstSetupPanel();renderPlanStatus();if(selectedShiftId)renderDetail()}
 function startNewShift(){
  if(!state.shifts.length)return openShiftModal();
  pendingCopySourceId=null;
@@ -142,6 +164,7 @@ function openShiftModal(shift=null){renderTypeSelects();renderShiftGroupChecklis
 function suggestedDates(){const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),last=new Date(y,d.getMonth()+1,0).getDate(),first=d.getDate()<=15;els.startDate.value=`${y}-${m}-${first?"01":"16"}`;els.endDate.value=`${y}-${m}-${first?"15":String(last).padStart(2,"0")}`}
 function saveShift(e){
  e.preventDefault();
+ if(!guardFullAccess())return;
  const name=els.shiftName.value.trim(),start=els.startDate.value,end=els.endDate.value;
  const selectedGroups=[...els.shiftGroupChecklist.querySelectorAll('input:checked')].map(x=>x.value);
  if(!name){els.shiftError.textContent="シフト名を入力してください。";return}
@@ -203,7 +226,7 @@ function renderShiftList(){
   c.innerHTML=`<div class="shift-card-main"><div><p class="type-badge">${esc(categoryName(s.type))}</p><h3>${esc(s.name)}</h3><p class="shift-period">${fmt(s.startDate)} ～ ${fmt(s.endDate)}</p>${sent}</div><span class="chevron">›</span></div><div class="card-actions"><button class="small-button edit">編集</button><button class="danger-outline-button del">削除</button></div>`;
   const open=()=>openDetail(s.id);c.querySelector(".shift-card-main").onclick=open;c.onkeydown=e=>{if(e.key==="Enter")open()};
   c.querySelector(".edit").onclick=e=>{e.stopPropagation();openShiftModal(s)};
-  c.querySelector(".del").onclick=e=>{e.stopPropagation();if(confirm(`「${s.name}」を削除しますか？`)){state.shifts=state.shifts.filter(x=>x.id!==s.id);if(selectedShiftId===s.id)closeDetail();save();renderAll()}};
+  c.querySelector(".del").onclick=e=>{e.stopPropagation();if(!guardFullAccess())return;if(confirm(`「${s.name}」を削除しますか？`)){state.shifts=state.shifts.filter(x=>x.id!==s.id);if(selectedShiftId===s.id)closeDetail();save();renderAll()}};
   els.shiftList.appendChild(c)
  })
 }
@@ -430,7 +453,7 @@ function baseChoices(type){return [["","未入力"]]}
 function seedAssignmentDefaults(catId){if(!Array.isArray(state.customOptions[catId]))state.customOptions[catId]=[];["休","○"].forEach(v=>{if(!state.customOptions[catId].includes(v))state.customOptions[catId].unshift(v)})}
 function renderAssignmentChoices(){const s=selected();if(!s||!editingCell)return;els.assignmentOptions.innerHTML="";const current=s.assignments?.[editingCell.staffId]?.[editingCell.date]||"",standard=baseChoices(s.type),registered=state.customOptions[s.type]||[],standardValues=new Set(standard.map(([v])=>v));const choices=[...standard,...registered.filter(v=>!standardValues.has(v)).map(v=>[v,v])];choices.forEach(([v,l])=>{const b=document.createElement("button");b.type="button";b.className="assignment-option"+(v===current?" selected":"");b.textContent=l;b.onclick=()=>setAssignment(v);els.assignmentOptions.appendChild(b)});els.customAssignmentInput.value=choices.some(([v])=>v===current)?"":current;renderRegisteredSettings(s.type)}
 function renderRegisteredSettings(type){const items=state.customOptions[type]||[];els.registeredAssignmentSettings.classList.toggle("hidden",items.length===0);els.registeredAssignmentList.innerHTML="";items.forEach((value,index)=>{const row=document.createElement("div");row.className="registered-assignment-row";row.innerHTML=`<span>${esc(value)}</span><div><button type="button" class="mini-option-button up" ${index===0?"disabled":""}>↑</button><button type="button" class="mini-option-button down" ${index===items.length-1?"disabled":""}>↓</button><button type="button" class="mini-option-button delete">削除</button></div>`;row.querySelector(".up").onclick=()=>moveCustomOption(type,index,-1);row.querySelector(".down").onclick=()=>moveCustomOption(type,index,1);row.querySelector(".delete").onclick=()=>deleteCustomOption(type,value);els.registeredAssignmentList.appendChild(row)})}
-function setAssignment(v){const s=selected(),{staffId,date}=editingCell;if(!s.assignments[staffId])s.assignments[staffId]={};if(v)s.assignments[staffId][date]=v;else delete s.assignments[staffId][date];if(Object.keys(s.assignments[staffId]).length===0)delete s.assignments[staffId];save();closeModal("assignment");renderDetail()}
+function setAssignment(v){if(!guardFullAccess())return;const s=selected(),{staffId,date}=editingCell;if(!s.assignments[staffId])s.assignments[staffId]={};if(v)s.assignments[staffId][date]=v;else delete s.assignments[staffId][date];if(Object.keys(s.assignments[staffId]).length===0)delete s.assignments[staffId];save();closeModal("assignment");renderDetail()}
 function saveCustomAssignment(){const v=els.customAssignmentInput.value.trim();if(!v)return alert("自由入力の内容を入力してください。");setAssignment(v)}
 function registerCustomAssignment(){const s=selected(),v=els.customAssignmentInput.value.trim();if(!s||!v)return alert("登録する内容を入力してください。");const standard=new Set(baseChoices(s.type).map(([value])=>value));if(standard.has(v))return alert("この内容はすでに標準の選択肢にあります。");const list=state.customOptions[s.type];if(list.includes(v))return alert("この内容はすでに登録されています。");list.push(v);save();renderAssignmentChoices();els.customAssignmentInput.value=v;toast(`「${v}」を登録しました`)}
 function moveCustomOption(type,index,direction){const list=state.customOptions[type],next=index+direction;if(next<0||next>=list.length)return;[list[index],list[next]]=[list[next],list[index]];save();renderAssignmentChoices()}
@@ -635,6 +658,7 @@ function renderAnnouncementStatusManageList(){
 }
 function saveAnnouncement(e){
  e.preventDefault();
+ if(!guardFullAccess())return;
  const template=$("announcementTemplate").value;
  const startDate=$("announcementStartDate").value;
  const endDate=$("announcementEndDate").value||startDate;
@@ -676,7 +700,7 @@ function renderAnnouncementList(){
  list.querySelectorAll(".edit").forEach(b=>b.onclick=()=>{const a=state.announcements.find(x=>x.id===b.dataset.id);if(a)openAnnouncementModal(a)});
  list.querySelectorAll(".line-share").forEach(b=>b.onclick=()=>shareAnnouncementToLine(b.dataset.id));
  list.querySelectorAll(".pdf").forEach(b=>b.onclick=()=>exportAnnouncementPdf(b.dataset.id));
- list.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(confirm("このお知らせを削除しますか？")){state.announcements=state.announcements.filter(x=>x.id!==b.dataset.id);save();renderAnnouncementList()}});
+ list.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(!guardFullAccess())return;if(confirm("このお知らせを削除しますか？")){state.announcements=state.announcements.filter(x=>x.id!==b.dataset.id);save();renderAnnouncementList()}});
 }
 async function createAnnouncementImageFile(a){
  const width=760,padding=40,titleHeight=64,dateColWidth=190;
@@ -760,6 +784,7 @@ function renderStaffModalRegisteredList(show){
 }
 function saveStaff(e){
  e.preventDefault();
+ if(!guardFullAccess())return;
  const submitBtn=els.staffForm.querySelector('[type="submit"]');
  if(submitBtn&&submitBtn.disabled)return;
  const name=els.staffName.value.trim();
@@ -794,7 +819,7 @@ function saveStaff(e){
 function sortStaff(){state.staff.sort((a,b)=>(b.isManager-a.isManager)||(a.order-b.order));state.staff.forEach((s,i)=>s.order=i)}
 function renderStaffList(){els.staffList.innerHTML="";els.masterStaffEmptyMessage.classList.toggle("hidden",state.staff.length>0);state.staff.forEach((p,i)=>{const r=document.createElement("div");r.className="staff-row";r.innerHTML=`<div><span class="staff-name">${esc(p.name)}</span>${p.isManager?'<span class="manager-mark">店長</span>':''}</div><div class="staff-actions"><button class="small-button up" ${i===0?'disabled':''}>↑</button><button class="small-button down" ${i===state.staff.length-1?'disabled':''}>↓</button><button class="small-button edit">編集</button><button class="danger-button del">削除</button></div>`;r.querySelector(".edit").onclick=()=>openStaffModal(p);r.querySelector(".del").onclick=()=>deleteStaff(p);r.querySelector(".up").onclick=()=>moveStaff(i,-1);r.querySelector(".down").onclick=()=>moveStaff(i,1);els.staffList.appendChild(r)});$("staffToShiftGuide")?.classList.toggle("hidden",state.staff.length===0)}
 function moveStaff(i,d){const j=i+d;if(j<0||j>=state.staff.length)return;[state.staff[i],state.staff[j]]=[state.staff[j],state.staff[i]];state.staff.forEach((s,k)=>{s.order=k;s.isManager=k===0&&s.isManager});save();renderAll()}
-function deleteStaff(p){if(!confirm(`「${p.name}」を削除しますか？\n過去のシフト入力も削除されます。`))return;state.staff=state.staff.filter(x=>x.id!==p.id);state.shifts.forEach(s=>{delete s.assignments[p.id];if(s.staffOverrides){s.staffOverrides.include=s.staffOverrides.include.filter(x=>x!==p.id);s.staffOverrides.exclude=s.staffOverrides.exclude.filter(x=>x!==p.id)}});save();renderAll();toast("スタッフを削除しました")}
+function deleteStaff(p){if(!guardFullAccess())return;if(!confirm(`「${p.name}」を削除しますか？\n過去のシフト入力も削除されます。`))return;state.staff=state.staff.filter(x=>x.id!==p.id);state.shifts.forEach(s=>{delete s.assignments[p.id];if(s.staffOverrides){s.staffOverrides.include=s.staffOverrides.include.filter(x=>x!==p.id);s.staffOverrides.exclude=s.staffOverrides.exclude.filter(x=>x!==p.id)}});save();renderAll();toast("スタッフを削除しました")}
 async function exportBackup(){
  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
  const filename=`シンプルシフト表_バックアップ_${new Date().toISOString().slice(0,10)}.json`;
