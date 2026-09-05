@@ -4,6 +4,8 @@ const isNativeApp=!!window.Capacitor; // iPhone/iPadアプリ内はwindow.print(
 const MAX_AUTO_BACKUPS=30;
 const holidayCache={};
 const TRIAL_DAYS=30;
+const REVENUECAT_ENTITLEMENT_ID="シンプルシフト表_pro";
+const REVENUECAT_API_KEY="test_AdgvmvXlhjPRoqFbxvZAFnwyDfJ"; // テスト用キー。本番公開前にApple用のPublic SDK Keyに差し替える
 let savedScrollY=0;
 let autoBackupTimer=null;
 let state=load();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;
@@ -11,7 +13,7 @@ const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>{const el=$(id);if(el)el[event]=handler;};
 const els={shiftList:$("shiftList"),emptyMessage:$("emptyMessage"),detailPanel:$("detailPanel"),detailType:$("detailType"),detailTitle:$("detailTitle"),detailPeriod:$("detailPeriod"),staffEmptyMessage:$("staffEmptyMessage"),shiftTable:$("shiftTable"),staffList:$("staffList"),masterStaffEmptyMessage:$("masterStaffEmptyMessage"),shiftModal:$("shiftModal"),staffModal:$("staffModal"),assignmentModal:$("assignmentModal"),mobileModal:$("mobileModal"),shiftForm:$("shiftForm"),staffForm:$("staffForm"),shiftId:$("shiftId"),shiftName:$("shiftName"),shiftType:$("shiftType"),shiftGroupChecklist:$("shiftGroupChecklist"),startDate:$("startDate"),endDate:$("endDate"),shiftError:$("shiftError"),staffId:$("staffId"),staffName:$("staffName"),staffWorkTypes:$("staffWorkTypes"),isManager:$("isManager"),shiftStaffModal:$("shiftStaffModal"),shiftStaffChecklist:$("shiftStaffChecklist"),shiftStaffModalNote:$("shiftStaffModalNote"),quickStaffName:$("quickStaffName"),assignmentTitle:$("assignmentTitle"),assignmentSubtitle:$("assignmentSubtitle"),assignmentOptions:$("assignmentOptions"),customAssignmentInput:$("customAssignmentInput"),registeredAssignmentSettings:$("registeredAssignmentSettings"),registeredAssignmentList:$("registeredAssignmentList"),mobileQrImage:$("mobileQrImage"),mobileUrlInput:$("mobileUrlInput"),categoryList:$("categoryList"),newCategoryName:$("newCategoryName"),autoBackupList:$("autoBackupList"),autoBackupEmpty:$("autoBackupEmpty"),toast:$("toast")};
 init();
-function init(){migrateOld();bind();renderAll();save()}
+function init(){migrateOld();bind();renderAll();save();initRevenueCat()}
 function bind(){
  on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("pdfButton","onclick",exportPdf);on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("toggleDayStatusButton","onclick",toggleDayStatus);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("addStaffGroupButton","onclick",addStaffModalGroup);if($("newStaffGroupName"))$("newStaffGroupName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStaffModalGroup()}});on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;on("openDataMigrationModalButton","onclick",()=>openModal("dataMigration"));on("migrationExportButton","onclick",exportBackup);if($("migrationImportInput"))$("migrationImportInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};els.customAssignmentInput.addEventListener("focus",()=>{setTimeout(()=>els.customAssignmentInput.scrollIntoView({block:"center",behavior:"smooth"}),300)});
  on("goToNewShiftButton","onclick",()=>{switchView("shifts");startNewShift()});
@@ -27,6 +29,9 @@ function bind(){
  document.querySelectorAll(".tab-button").forEach(x=>x.onclick=()=>switchView(x.dataset.view));document.querySelectorAll(".setting-link[data-info]").forEach(x=>x.onclick=()=>alert(x.dataset.info));on("openHelpModalButton","onclick",()=>openModal("help"));
  on("contactButton","onclick",()=>{window.location.href=`mailto:jinqizhiren@gmail.com?subject=${encodeURIComponent("シンプルシフト表 飲食店版のお問い合わせ")}`});
  on("rateAppButton","onclick",()=>{window.open("https://apps.apple.com/app/id6793560808?action=write-review","_blank")});
+ on("viewPlanButton","onclick",presentPlanPaywall);
+ on("restorePurchaseButton","onclick",restorePlanPurchase);
+ on("manageSubscriptionButton","onclick",manageSubscription);
  if(isNativeApp)$("pdfButton")?.classList.add("hidden");
 }
 function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["営業","休業","臨時休業"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
@@ -92,7 +97,48 @@ function migrateOld(){
 }
 function trialDaysLeft(){const elapsedMs=Date.now()-new Date(state.firstLaunchAt).getTime();const leftMs=TRIAL_DAYS*86400000-elapsedMs;return Math.max(0,Math.ceil(leftMs/86400000))}
 function hasFullAccess(){return state.subscriptionActive||trialDaysLeft()>0}
-function guardFullAccess(){if(hasFullAccess())return true;alert("無料期間が終了しました。今までのデータは引き続き閲覧できますが、新規作成・編集をするには月額300円のプランへの登録が必要です。「設定」タブの「利用プラン」からご案内しています。");return false}
+function guardFullAccess(){
+ if(hasFullAccess())return true;
+ if(isNativeApp&&window.RevenueCatBridge){presentPlanPaywall();return false}
+ alert("無料期間が終了しました。今までのデータは引き続き閲覧できますが、新規作成・編集をするには月額300円のプランへの登録が必要です。「設定」タブの「利用プラン」からご案内しています。");
+ return false;
+}
+async function initRevenueCat(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ try{
+  await window.RevenueCatBridge.configure(REVENUECAT_API_KEY);
+  await refreshEntitlement();
+ }catch(e){console.error("RevenueCatの初期化に失敗しました",e)}
+}
+async function refreshEntitlement(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ const active=await window.RevenueCatBridge.checkEntitlement();
+ if(active===null)return; // 通信できなかった場合は今の状態のまま（無料期間タイマーに任せる）
+ if(state.subscriptionActive!==active){state.subscriptionActive=active;save()}
+ renderPlanStatus();
+}
+async function presentPlanPaywall(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ try{
+  await window.RevenueCatBridge.presentPaywall();
+ }catch(e){console.error("料金プラン画面の表示に失敗しました",e)}
+ await refreshEntitlement();
+}
+async function restorePlanPurchase(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ try{
+  const active=await window.RevenueCatBridge.restorePurchases();
+  if(active){state.subscriptionActive=true;save();renderPlanStatus();toast("購入情報を復元しました")}
+  else alert("有効な購入情報が見つかりませんでした。");
+ }catch(e){console.error("購入の復元に失敗しました",e);alert("購入の復元に失敗しました。時間をおいて再度お試しください。")}
+}
+async function manageSubscription(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ try{
+  await window.RevenueCatBridge.presentCustomerCenter();
+ }catch(e){console.error("サブスクリプション管理画面の表示に失敗しました",e)}
+ await refreshEntitlement();
+}
 function renderPlanStatus(){
  const textEl=$("planStatusText"),badgeEl=$("planStatusBadge");if(!textEl||!badgeEl)return;
  if(state.subscriptionActive){
@@ -108,6 +154,13 @@ function renderPlanStatus(){
    badgeEl.textContent="未登録";
   }
  }
+ const rowEl=$("planActionRow"),viewBtn=$("viewPlanButton"),restoreBtn=$("restorePurchaseButton"),manageBtn=$("manageSubscriptionButton");
+ if(!rowEl)return;
+ rowEl.classList.toggle("hidden",!isNativeApp);
+ if(!isNativeApp)return;
+ viewBtn?.classList.toggle("hidden",state.subscriptionActive);
+ restoreBtn?.classList.toggle("hidden",state.subscriptionActive);
+ manageBtn?.classList.toggle("hidden",!state.subscriptionActive);
 }
 function switchView(name){["shifts","staff","settings","announcements","data","appSettings"].forEach(v=>$(v+"View").classList.toggle("hidden",v!==name));els.detailPanel.classList.toggle("hidden",!(name==="shifts"&&selectedShiftId));document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.view===name))}
 function openModal(name){
