@@ -5,7 +5,7 @@ const MAX_AUTO_BACKUPS=30;
 const holidayCache={};
 const TRIAL_DAYS=30;
 const REVENUECAT_ENTITLEMENT_ID="シンプルシフト表_pro";
-const REVENUECAT_API_KEY="test_AdgvmvXlhjPRoqFbxvZAFnwyDfJ"; // テスト用キー。本番公開前にApple用のPublic SDK Keyに差し替える
+const REVENUECAT_API_KEY="appl_OllmwqDLnUcdmNnhfAWzMsuXqHz"; // RevenueCatダッシュボードの「シンプルシフト表 (App Store)」用Public SDK Key
 let savedScrollY=0;
 let autoBackupTimer=null;
 let state=load();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;
