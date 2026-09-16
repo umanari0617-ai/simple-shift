@@ -331,7 +331,7 @@ async function createShiftImageFile(){
  const staff=getShiftStaff(s);
  const dates=dateRange(s.startDate,s.endDate);
  const showDayStatus=s.showDayStatus!==false;
- const nameWidth=150,cellWidth=72,rowHeight=44,statusRowHeight=32,titleHeight=104,padding=24;
+ const nameWidth=150,cellWidth=72,rowHeight=44,statusRowHeight=32,titleHeight=104,padding=50;
  const rowCount=staff.length+(s.showHeadcount?1:0);
  const statusHeight=showDayStatus?statusRowHeight:0;
  const width=Math.max(900,padding*2+nameWidth+cellWidth*dates.length);
@@ -756,7 +756,7 @@ function renderAnnouncementList(){
  list.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(!guardFullAccess())return;if(confirm("このお知らせを削除しますか？")){state.announcements=state.announcements.filter(x=>x.id!==b.dataset.id);save();renderAnnouncementList()}});
 }
 async function createAnnouncementImageFile(a){
- const width=760,padding=40,titleHeight=64,dateColWidth=190;
+ const width=760,padding=70,titleHeight=64,dateColWidth=190;
  const entries=announcementDayEntries(a);
  const rowHeight=54;
  const bodyHeight=entries.length?entries.length*rowHeight:60;
