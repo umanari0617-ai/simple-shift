@@ -1,79 +1,21 @@
-const KEY="umanariShiftRetailV1"; // 小売店版専用の保存キー（飲食店版とは分離）
-const BACKUP_KEY="umanariShiftRetailV1_autoBackups";
+const KEY="umanariShiftAppV2"; // 旧版データをそのまま引き継ぐ
+const BACKUP_KEY="umanariShiftAppV2_autoBackups";
+const isNativeApp=!!window.Capacitor; // iPhone/iPadアプリ内はwindow.print()が動かないためPDFボタンを隠す（Capacitorのバージョン差でisNativePlatform()が無い場合もあるため、window.Capacitorの有無だけで判定する）
 const MAX_AUTO_BACKUPS=30;
-let state=defaultState();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;let autoBackupTimer;
+const holidayCache={};
+const TRIAL_DAYS=30;
+const REVENUECAT_ENTITLEMENT_ID="シンプルシフト表_pro";
+const REVENUECAT_API_KEY="appl_OllmwqDLnUcdmNnhfAWzMsuXqHz"; // RevenueCatダッシュボードの「シンプルシフト表 (App Store)」用Public SDK Key
+let savedScrollY=0;
+let autoBackupTimer=null;
+let state=load();let selectedShiftId=null;let editingCell=null;let toastTimer;let pendingCopySourceId=null;
 const $=id=>document.getElementById(id);
 const on=(id,event,handler)=>{const el=$(id);if(el)el[event]=handler;};
 const els={shiftList:$("shiftList"),emptyMessage:$("emptyMessage"),detailPanel:$("detailPanel"),detailType:$("detailType"),detailTitle:$("detailTitle"),detailPeriod:$("detailPeriod"),staffEmptyMessage:$("staffEmptyMessage"),shiftTable:$("shiftTable"),staffList:$("staffList"),masterStaffEmptyMessage:$("masterStaffEmptyMessage"),shiftModal:$("shiftModal"),staffModal:$("staffModal"),assignmentModal:$("assignmentModal"),mobileModal:$("mobileModal"),shiftForm:$("shiftForm"),staffForm:$("staffForm"),shiftId:$("shiftId"),shiftName:$("shiftName"),shiftType:$("shiftType"),shiftGroupChecklist:$("shiftGroupChecklist"),startDate:$("startDate"),endDate:$("endDate"),shiftError:$("shiftError"),staffId:$("staffId"),staffName:$("staffName"),staffWorkTypes:$("staffWorkTypes"),isManager:$("isManager"),shiftStaffModal:$("shiftStaffModal"),shiftStaffChecklist:$("shiftStaffChecklist"),shiftStaffModalNote:$("shiftStaffModalNote"),quickStaffName:$("quickStaffName"),assignmentTitle:$("assignmentTitle"),assignmentSubtitle:$("assignmentSubtitle"),assignmentOptions:$("assignmentOptions"),customAssignmentInput:$("customAssignmentInput"),registeredAssignmentSettings:$("registeredAssignmentSettings"),registeredAssignmentList:$("registeredAssignmentList"),mobileQrImage:$("mobileQrImage"),mobileUrlInput:$("mobileUrlInput"),categoryList:$("categoryList"),newCategoryName:$("newCategoryName"),autoBackupList:$("autoBackupList"),autoBackupEmpty:$("autoBackupEmpty"),toast:$("toast")};
-boot();
-async function boot(){state=await resolveInitialState();init()}
-async function resolveInitialState(){
- let local=null;
- try{local=JSON.parse(localStorage.getItem(KEY))}catch{}
- const localOk=local&&Array.isArray(local.staff)&&Array.isArray(local.shifts);
- if(!window.NativeStorage)return localOk?local:defaultState();
- let native=null;
- try{const raw=await window.NativeStorage.get(KEY);native=raw?JSON.parse(raw):null}catch(e){console.error("[NativeStorage] 起動時の読み込みに失敗しました",e)}
- const nativeOk=native&&Array.isArray(native.staff)&&Array.isArray(native.shifts);
- if(!nativeOk)return localOk?local:defaultState();
- if(!localOk)return native;
- return (native.lastModified||0)>=(local.lastModified||0)?native:local;
-}
-function init(){migrateOld();save();bind();renderAll();preventKeyboardScrollGlitch();refreshPlanStatus();watchAppResume()}
-function watchAppResume(){
- const refresh=async()=>{state=await resolveInitialState();migrateOld();renderAll();forceRepaint()};
- document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")refresh()});
-}
-function forceRepaint(){
- const body=document.body;
- body.style.display="none";
- void body.offsetHeight;
- body.style.display="";
-}
-function preventKeyboardScrollGlitch(){
- document.addEventListener("focusin",e=>{
-  if(!e.target.closest(".modal"))return;
-  const target=e.target;
-  const reset=()=>{window.scrollTo(0,0);target.scrollIntoView({block:"center"})};
-  setTimeout(reset,50);setTimeout(reset,300);setTimeout(reset,600);
- });
-}
-function setPlanBadge(text){const el=$("planStatusBadge");if(el)el.textContent=text}
-function refreshPlanStatus(){
- if(!window.RevenueCatBilling){setPlanBadge("未確認");return}
- window.RevenueCatBilling.isProActive().then(active=>{
-  if(active===true)setPlanBadge("利用中");
-  else if(active===false)setPlanBadge("未課金");
-  else setPlanBadge("未確認");
- }).catch(()=>setPlanBadge("未確認"));
-}
-async function openPlan(){
- if(!window.RevenueCatBilling){alert("この画面は実機のアプリでのみご利用いただけます。");return}
- try{
-  const active=await window.RevenueCatBilling.isProActive();
-  if(active)await window.RevenueCatBilling.presentCustomerCenter();
-  else await window.RevenueCatBilling.presentPaywallIfNeeded();
- }catch(error){
-  console.error(error);
-  alert("プラン情報の取得に失敗しました。通信環境を確認してもう一度お試しください。");
- }finally{
-  refreshPlanStatus();
- }
-}
-async function restorePurchasesFromSettings(){
- if(!window.RevenueCatBilling){alert("この画面は実機のアプリでのみご利用いただけます。");return}
- try{
-  const active=await window.RevenueCatBilling.restorePurchases();
-  toast(active?"購入情報を復元しました":"復元できる購入情報が見つかりませんでした");
- }catch(error){
-  console.error(error);
-  alert("購入の復元に失敗しました。通信環境を確認してもう一度お試しください。");
- }finally{
-  refreshPlanStatus();
- }
-}
+init();
+function init(){migrateOld();bind();renderAll();save();initRevenueCat()}
 function bind(){
- on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("toggleDayStatusButton","onclick",toggleDayStatus);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("addStaffGroupButton","onclick",addStaffModalGroup);if($("newStaffGroupName"))$("newStaffGroupName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStaffModalGroup()}});on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};
+ on("emptyCreateShiftButton","onclick",()=>startNewShift());on("openStaffModalButton","onclick",()=>openStaffModal());on("firstSetupStaffButton","onclick",()=>openStaffModal());on("firstSetupCreateShiftButton","onclick",()=>startNewShift());on("blankShiftButton","onclick",()=>{pendingCopySourceId=null;closeModal("shiftSource");openShiftModal()});on("closeDetailButton","onclick",closeDetail);on("pdfButton","onclick",exportPdf);on("mobileOpenButton","onclick",openMobileModal);on("lineShareButton","onclick",shareToLine);on("copyMobileUrlButton","onclick",copyMobileUrl);on("lineShareModalButton","onclick",shareToLine);on("manageShiftStaffButton","onclick",openShiftStaffModal);on("toggleHeadcountButton","onclick",toggleHeadcount);on("toggleDayStatusButton","onclick",toggleDayStatus);on("copyPreviousButton","onclick",copyPrevious);on("clearShiftButton","onclick",clearShift);on("addCategoryButton","onclick",addCategory);if(els.newCategoryName){els.newCategoryName.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addCategory()}})}on("addStaffGroupButton","onclick",addStaffModalGroup);if($("newStaffGroupName"))$("newStaffGroupName").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStaffModalGroup()}});on("exportButton","onclick",exportBackup);if($("importInput"))$("importInput").onchange=importBackup;on("openDataMigrationModalButton","onclick",()=>openModal("dataMigration"));on("migrationExportButton","onclick",exportBackup);if($("migrationImportInput"))$("migrationImportInput").onchange=importBackup;els.shiftForm.onsubmit=saveShift;els.staffForm.onsubmit=saveStaff;on("saveCustomAssignmentButton","onclick",saveCustomAssignment);on("registerCustomAssignmentButton","onclick",registerCustomAssignment);on("saveShiftStaffButton","onclick",saveShiftStaffSelection);on("quickAddStaffButton","onclick",quickAddStaff);els.customAssignmentInput.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();saveCustomAssignment()}};els.customAssignmentInput.addEventListener("focus",()=>{setTimeout(()=>els.customAssignmentInput.scrollIntoView({block:"center",behavior:"smooth"}),300)});
  on("goToNewShiftButton","onclick",()=>{switchView("shifts");startNewShift()});
  on("staffModalCreateShiftButton","onclick",()=>{closeModal("staff");switchView("shifts");startNewShift()});
  on("createShiftButton","onclick",()=>startNewShift());
@@ -85,25 +27,16 @@ function bind(){
   closeModal(name);
  });
  document.querySelectorAll(".tab-button").forEach(x=>x.onclick=()=>switchView(x.dataset.view));document.querySelectorAll(".setting-link[data-info]").forEach(x=>x.onclick=()=>alert(x.dataset.info));on("openHelpModalButton","onclick",()=>openModal("help"));
- on("contactButton","onclick",()=>{window.location.href=`mailto:jinqizhiren@gmail.com?subject=${encodeURIComponent("シンプルシフト表 小売店版のお問い合わせ")}`});
- on("rateAppButton","onclick",()=>{window.open("https://apps.apple.com/app/id6800991111?action=write-review","_blank")});
- on("openPlanButton","onclick",openPlan);
- on("restorePurchasesButton","onclick",restorePurchasesFromSettings);
+ on("contactButton","onclick",()=>{window.location.href=`mailto:jinqizhiren@gmail.com?subject=${encodeURIComponent("シンプルシフト表 飲食店版のお問い合わせ")}`});
+ on("rateAppButton","onclick",()=>{window.open("https://apps.apple.com/app/id6793560808?action=write-review","_blank")});
+ on("viewPlanButton","onclick",presentPlanPaywall);
+ on("restorePurchaseButton","onclick",restorePlanPurchase);
+ on("manageSubscriptionButton","onclick",manageSubscription);
+ if(isNativeApp)$("pdfButton")?.classList.add("hidden");
 }
-function defaultState(){return {staff:[],shifts:[],categories:[{id:"early",name:"早番"},{id:"late",name:"遅番"},{id:"register",name:"レジ"},{id:"stocking",name:"品出し"}],customOptions:{early:[],late:[],register:[],stocking:[]},announcements:[],announcementStatuses:["営業","休業","臨時休業"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","棚卸し"]}}
-function save(){
- try{
-  state.lastModified=Date.now();
-  const json=JSON.stringify(state);
-  const parsed=JSON.parse(json);
-  if(!Array.isArray(parsed.staff)||!Array.isArray(parsed.shifts))throw new Error("staffまたはshiftsが配列ではありません");
-  localStorage.setItem(KEY,json);
-  if(window.NativeStorage)window.NativeStorage.set(KEY,json);
-  clearTimeout(autoBackupTimer);autoBackupTimer=setTimeout(autoBackup,1200);
- }catch(e){
-  console.error("保存に失敗しました。直前の保存データは上書きされていません。",e);
- }
-}
+function defaultState(){return {staff:[],shifts:[],categories:[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}],customOptions:{lunch:[],dinner:[],hall:[],kitchen:[]},announcements:[],announcementStatuses:["営業","休業","臨時休業"],announcementTemplates:["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"]}}
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||defaultState()}catch{return defaultState()}}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));clearTimeout(autoBackupTimer);autoBackupTimer=setTimeout(autoBackup,1200)}
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function loadAutoBackups(){try{const list=JSON.parse(localStorage.getItem(BACKUP_KEY));return Array.isArray(list)?list:[]}catch{return []}}
 function autoBackup(){
@@ -142,18 +75,19 @@ function restoreAutoBackup(entry){
 }
 function id(){return crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random()}
 function migrateOld(){
+ if(!state.firstLaunchAt)state.firstLaunchAt=new Date().toISOString();
+ if(typeof state.subscriptionActive!=="boolean")state.subscriptionActive=false;
  if(!Array.isArray(state.staff))state.staff=[];if(!Array.isArray(state.shifts))state.shifts=[];if(!Array.isArray(state.announcements))state.announcements=[];
- if(state.staff.length>0)state.hasEverHadStaff=true;
  if(!Array.isArray(state.announcementStatuses)||!state.announcementStatuses.length)state.announcementStatuses=["営業","休業","臨時休業"];
  if(!state.dayStatusUnified){state.announcementStatuses=["営業","休業","臨時休業"];state.dayStatusUnified=true;}
- if(!Array.isArray(state.announcementTemplates)||!state.announcementTemplates.length)state.announcementTemplates=["臨時休業","夏季休暇","年末年始","営業時間変更","棚卸し"];
- if(!Array.isArray(state.categories)||!state.categories.length)state.categories=[{id:"early",name:"早番"},{id:"late",name:"遅番"},{id:"register",name:"レジ"},{id:"stocking",name:"品出し"}];
+ if(!Array.isArray(state.announcementTemplates)||!state.announcementTemplates.length)state.announcementTemplates=["臨時休業","夏季休暇","年末年始","営業時間変更","貸切","ランチ休業","ディナー休業"];
+ if(!Array.isArray(state.categories)||!state.categories.length)state.categories=[{id:"lunch",name:"ランチ"},{id:"dinner",name:"ディナー"},{id:"hall",name:"ホール"},{id:"kitchen",name:"キッチン"}];
  state.categories=state.categories.filter(c=>c&&c.id&&c.name);
  if(!state.customOptions||typeof state.customOptions!=="object")state.customOptions={};
  state.categories.forEach(c=>{if(!Array.isArray(state.customOptions[c.id]))state.customOptions[c.id]=[];state.customOptions[c.id]=[...new Set(state.customOptions[c.id].map(v=>String(v).trim()).filter(Boolean))]});
  if(!state.assignmentDefaultsSeeded){
   state.categories.forEach(c=>{
-   const defaults={early:["休","○","11:00","10:00","9:00"],late:["休","○","17:00","14:00","13:00"]}[c.id]||["休","○"];
+   const defaults=c.id==="dinner"?["休","18:30","18:15","18:00","17:45","17:30","17:00"]:["休","○"];
    defaults.forEach(v=>{if(!state.customOptions[c.id].includes(v))state.customOptions[c.id].unshift(v)});
   });
   state.assignmentDefaultsSeeded=true;
@@ -161,8 +95,74 @@ function migrateOld(){
  state.staff.forEach((p,i)=>{if(p.order==null)p.order=i;if(!Array.isArray(p.workTypes)){p.workTypes=p.workType==="both"?["lunch","dinner"]:[p.workType||"lunch"]}p.workTypes=p.workTypes.filter(t=>state.categories.some(c=>c.id===t));if(!p.workTypes.length)p.workTypes=[state.categories[0].id]});
  state.shifts.forEach(s=>{if(!state.categories.some(c=>c.id===s.type))s.type=state.categories[0].id;if(!s.staffOverrides||typeof s.staffOverrides!=="object")s.staffOverrides={include:[],exclude:[]};if(!Array.isArray(s.staffOverrides.include))s.staffOverrides.include=[];if(!Array.isArray(s.staffOverrides.exclude))s.staffOverrides.exclude=[];if(typeof s.showHeadcount!=="boolean")s.showHeadcount=false});sortStaff()
 }
+function trialDaysLeft(){const elapsedMs=Date.now()-new Date(state.firstLaunchAt).getTime();const leftMs=TRIAL_DAYS*86400000-elapsedMs;return Math.max(0,Math.ceil(leftMs/86400000))}
+function hasFullAccess(){return state.subscriptionActive||trialDaysLeft()>0}
+function guardFullAccess(){
+ if(hasFullAccess())return true;
+ if(isNativeApp&&window.RevenueCatBridge){presentPlanPaywall();return false}
+ alert("無料期間が終了しました。今までのデータは引き続き閲覧できますが、新規作成・編集をするには月額300円のプランへの登録が必要です。「設定」タブの「利用プラン」からご案内しています。");
+ return false;
+}
+async function initRevenueCat(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ try{
+  await window.RevenueCatBridge.configure(REVENUECAT_API_KEY);
+  await refreshEntitlement();
+ }catch(e){console.error("RevenueCatの初期化に失敗しました",e)}
+}
+async function refreshEntitlement(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ const active=await window.RevenueCatBridge.checkEntitlement();
+ if(active===null)return; // 通信できなかった場合は今の状態のまま（無料期間タイマーに任せる）
+ if(state.subscriptionActive!==active){state.subscriptionActive=active;save()}
+ renderPlanStatus();
+}
+async function presentPlanPaywall(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ try{
+  await window.RevenueCatBridge.presentPaywall();
+ }catch(e){console.error("料金プラン画面の表示に失敗しました",e)}
+ await refreshEntitlement();
+}
+async function restorePlanPurchase(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ try{
+  const active=await window.RevenueCatBridge.restorePurchases();
+  if(active){state.subscriptionActive=true;save();renderPlanStatus();toast("購入情報を復元しました")}
+  else alert("有効な購入情報が見つかりませんでした。");
+ }catch(e){console.error("購入の復元に失敗しました",e);alert("購入の復元に失敗しました。時間をおいて再度お試しください。")}
+}
+async function manageSubscription(){
+ if(!isNativeApp||!window.RevenueCatBridge)return;
+ try{
+  await window.RevenueCatBridge.presentCustomerCenter();
+ }catch(e){console.error("サブスクリプション管理画面の表示に失敗しました",e)}
+ await refreshEntitlement();
+}
+function renderPlanStatus(){
+ const textEl=$("planStatusText"),badgeEl=$("planStatusBadge");if(!textEl||!badgeEl)return;
+ if(state.subscriptionActive){
+  textEl.textContent="ご利用ありがとうございます。すべての機能を利用できます。";
+  badgeEl.textContent="登録済み";
+ }else{
+  const left=trialDaysLeft();
+  if(left>0){
+   textEl.textContent=`無料お試し期間中です。残り${left}日。期間終了後は月額300円で全機能を利用できます（未課金でも閲覧は可能です）。`;
+   badgeEl.textContent="体験期間中";
+  }else{
+   textEl.textContent="無料期間が終了しました。作成済みのデータは閲覧できますが、新規作成・編集には月額300円のプランへの登録が必要です。";
+   badgeEl.textContent="未登録";
+  }
+ }
+ const rowEl=$("planActionRow"),viewBtn=$("viewPlanButton"),restoreBtn=$("restorePurchaseButton"),manageBtn=$("manageSubscriptionButton");
+ if(!rowEl)return;
+ rowEl.classList.toggle("hidden",!isNativeApp);
+ if(!isNativeApp)return;
+ viewBtn?.classList.toggle("hidden",state.subscriptionActive);
+ restoreBtn?.classList.toggle("hidden",state.subscriptionActive);
+ manageBtn?.classList.toggle("hidden",!state.subscriptionActive);
+}
 function switchView(name){["shifts","staff","settings","announcements","data","appSettings"].forEach(v=>$(v+"View").classList.toggle("hidden",v!==name));els.detailPanel.classList.toggle("hidden",!(name==="shifts"&&selectedShiftId));document.querySelectorAll(".tab-button").forEach(b=>b.classList.toggle("active",b.dataset.view===name))}
-let savedScrollY=0;
 function openModal(name){
  $(name+"Modal").classList.remove("hidden");
  if(!document.body.classList.contains("modal-open")){
@@ -186,8 +186,7 @@ function updateFirstSetupPanel(){
  const staffBtn=$("firstSetupStaffButton");
  const createBtn=$("firstSetupCreateShiftButton");
  if(titleEl)titleEl.textContent=`現在スタッフ登録 ${state.staff.length}人`;
- const treatAsRegistered=state.staff.length>0||state.hasEverHadStaff;
- if(treatAsRegistered){
+ if(state.staff.length>0){
   if(guideEl)guideEl.innerHTML="続けて登録できます。<br>登録が終わったら、新しいシフトを作成しましょう。";
   if(staffBtn)staffBtn.textContent="＋ スタッフを追加登録する";
   if(createBtn)createBtn.classList.remove("hidden");
@@ -197,10 +196,10 @@ function updateFirstSetupPanel(){
   if(createBtn)createBtn.classList.add("hidden");
  }
  panel.classList.toggle("hidden",state.shifts.length>0);
- panel.classList.toggle("panel-welcome",!treatAsRegistered);
+ panel.classList.toggle("panel-welcome",state.staff.length===0);
  els.emptyMessage.classList.add("hidden");
 }
-function renderAll(){renderTypeSelects();renderShiftList();renderStaffList();renderCategoryList();renderAutoBackupList();renderAnnouncementList();updateFirstSetupPanel();if(selectedShiftId)renderDetail()}
+function renderAll(){renderTypeSelects();renderShiftList();renderStaffList();renderCategoryList();renderAutoBackupList();renderAnnouncementList();updateFirstSetupPanel();renderPlanStatus();if(selectedShiftId)renderDetail()}
 function startNewShift(){
  if(!state.shifts.length)return openShiftModal();
  pendingCopySourceId=null;
@@ -214,21 +213,11 @@ function renderShiftSourceList(){
   row.querySelector("button").onclick=()=>{pendingCopySourceId=row.dataset.id;closeModal("shiftSource");openShiftModal()};
  });
 }
-function openShiftModal(shift=null){renderTypeSelects();renderShiftGroupChecklist(shift?shiftGroupIds(shift):[]);els.shiftForm.reset();els.shiftError.textContent="";$("shiftModalTitle").textContent=shift?"シフト表を編集":"新しいシフト表";els.shiftId.value=shift?.id||"";els.shiftName.value=shift?.name||"";if(shift){els.startDate.value=shift.startDate;els.endDate.value=shift.endDate}else if(pendingCopySourceId){suggestedDatesFromSource(pendingCopySourceId)}else suggestedDates();openModal("shift");els.shiftName.focus()}
+function openShiftModal(shift=null){renderTypeSelects();renderShiftGroupChecklist(shift?shiftGroupIds(shift):[]);els.shiftForm.reset();els.shiftError.textContent="";$("shiftModalTitle").textContent=shift?"シフト表を編集":"新しいシフト表";els.shiftId.value=shift?.id||"";els.shiftName.value=shift?.name||"";if(shift){els.startDate.value=shift.startDate;els.endDate.value=shift.endDate}else suggestedDates();openModal("shift");els.shiftName.focus()}
 function suggestedDates(){const d=new Date(),y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),last=new Date(y,d.getMonth()+1,0).getDate(),first=d.getDate()<=15;els.startDate.value=`${y}-${m}-${first?"01":"16"}`;els.endDate.value=`${y}-${m}-${first?"15":String(last).padStart(2,"0")}`}
-function suggestedDatesFromSource(sourceId){
- const source=state.shifts.find(s=>s.id===sourceId);
- if(!source){suggestedDates();return}
- const toDate=v=>new Date(v+"T00:00:00");
- const fromDate=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
- const start=toDate(source.startDate),end=toDate(source.endDate);
- const days=Math.round((end-start)/86400000)+1;
- const nextStart=new Date(end);nextStart.setDate(nextStart.getDate()+1);
- const nextEnd=new Date(nextStart);nextEnd.setDate(nextEnd.getDate()+days-1);
- els.startDate.value=fromDate(nextStart);els.endDate.value=fromDate(nextEnd);
-}
 function saveShift(e){
  e.preventDefault();
+ if(!guardFullAccess())return;
  const name=els.shiftName.value.trim(),start=els.startDate.value,end=els.endDate.value;
  const selectedGroups=[...els.shiftGroupChecklist.querySelectorAll('input:checked')].map(x=>x.value);
  if(!name){els.shiftError.textContent="シフト名を入力してください。";return}
@@ -290,7 +279,7 @@ function renderShiftList(){
   c.innerHTML=`<div class="shift-card-main"><div><p class="type-badge">${esc(categoryName(s.type))}</p><h3>${esc(s.name)}</h3><p class="shift-period">${fmt(s.startDate)} ～ ${fmt(s.endDate)}</p>${sent}</div><span class="chevron">›</span></div><div class="card-actions"><button class="small-button edit">編集</button><button class="danger-outline-button del">削除</button></div>`;
   const open=()=>openDetail(s.id);c.querySelector(".shift-card-main").onclick=open;c.onkeydown=e=>{if(e.key==="Enter")open()};
   c.querySelector(".edit").onclick=e=>{e.stopPropagation();openShiftModal(s)};
-  c.querySelector(".del").onclick=e=>{e.stopPropagation();if(confirm(`「${s.name}」を削除しますか？`)){state.shifts=state.shifts.filter(x=>x.id!==s.id);if(selectedShiftId===s.id)closeDetail();save();renderAll()}};
+  c.querySelector(".del").onclick=e=>{e.stopPropagation();if(!guardFullAccess())return;if(confirm(`「${s.name}」を削除しますか？`)){state.shifts=state.shifts.filter(x=>x.id!==s.id);if(selectedShiftId===s.id)closeDetail();save();renderAll()}};
   els.shiftList.appendChild(c)
  })
 }
@@ -314,7 +303,7 @@ function openMobileModal(){
 function buildShiftShareText(){
  const url=publicUrl();
  const s=selected();
- if(!s)return `シンプルシフト表｜小売店版\n${url}`;
+ if(!s)return `シンプルシフト表｜飲食店版\n${url}`;
  const staff=getShiftStaff(s);
  const dates=dateRange(s.startDate,s.endDate);
  const lines=[
@@ -342,11 +331,11 @@ async function createShiftImageFile(){
  const staff=getShiftStaff(s);
  const dates=dateRange(s.startDate,s.endDate);
  const showDayStatus=s.showDayStatus!==false;
- const nameWidth=150,cellWidth=72,rowHeight=44,titleHeight=104,padding=50;
- const headerRows=showDayStatus?2:1;
- const rowCount=headerRows+staff.length+(s.showHeadcount?1:0);
+ const nameWidth=150,cellWidth=72,rowHeight=44,statusRowHeight=32,titleHeight=104,padding=50;
+ const rowCount=staff.length+(s.showHeadcount?1:0);
+ const statusHeight=showDayStatus?statusRowHeight:0;
  const width=Math.max(900,padding*2+nameWidth+cellWidth*dates.length);
- const height=titleHeight+rowHeight*rowCount+padding*2;
+ const height=titleHeight+rowHeight*(rowCount+1)+statusHeight+padding*2;
  const scale=Math.min(2,4096/width,4096/height);
  const canvas=document.createElement("canvas");
  canvas.width=Math.round(width*scale);canvas.height=Math.round(height*scale);
@@ -354,28 +343,32 @@ async function createShiftImageFile(){
  ctx.fillStyle="#fffdf8";ctx.fillRect(0,0,width,height);
  ctx.fillStyle="#5b3500";ctx.font="bold 28px sans-serif";ctx.fillText(s.name,padding,42);
  ctx.font="16px sans-serif";ctx.fillText(`${categoryName(s.type)}　${fmt(s.startDate)} ～ ${fmt(s.endDate)}`,padding,72);
- ctx.fillStyle="#8a4a00";ctx.font="13px sans-serif";ctx.fillText("シンプルシフト表｜小売店版",padding,94);
+ ctx.fillStyle="#8a4a00";ctx.font="13px sans-serif";ctx.fillText("シンプルシフト表｜飲食店版",padding,94);
  const top=titleHeight,left=padding;
  function cell(x,y,w,h,fill,stroke="#d6c4aa"){
   ctx.fillStyle=fill;ctx.fillRect(x,y,w,h);ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.strokeRect(x,y,w,h);
  }
- cell(left,top,nameWidth,rowHeight*headerRows,"#f3e3cc");
- ctx.fillStyle="#5b3500";ctx.font="bold 14px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("名前",left+nameWidth/2,top+(rowHeight*headerRows)/2);
+ cell(left,top,nameWidth,rowHeight,"#f3e3cc");
+ ctx.fillStyle="#5b3500";ctx.font="bold 14px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("名前",left+nameWidth/2,top+rowHeight/2);
  dates.forEach((d,i)=>{
   const x=left+nameWidth+i*cellWidth;const holiday=isJapaneseHoliday(d);const dow=new Date(d+"T00:00:00").getDay();
   cell(x,top,cellWidth,rowHeight,holiday||dow===0?"#fde9e7":dow===6?"#eaf3ff":"#f8efe2");
   ctx.fillStyle=holiday||dow===0?"#cf332d":dow===6?"#2367a8":"#5b3500";
   ctx.font="bold 12px sans-serif";ctx.fillText(headerDate(d).replace("<br>"," ").replace(/[()]/g,""),x+cellWidth/2,top+rowHeight/2);
-  if(showDayStatus){
-   const status=getShiftDayStatus(s,d);
-   const y=top+rowHeight;
-   cell(x,y,cellWidth,rowHeight,"#fff");
-   ctx.fillStyle=(status==="休業"||status==="臨時休業")?"#c62828":"#5b3500";
-   ctx.font="bold 12px sans-serif";ctx.fillText(status,x+cellWidth/2,y+rowHeight/2);
-  }
  });
+ let bodyTop=top+rowHeight;
+ if(showDayStatus){
+  cell(left,bodyTop,nameWidth,statusRowHeight,"#fff4d9");
+  ctx.fillStyle="#5b3500";ctx.textAlign="left";ctx.font="bold 12px sans-serif";ctx.fillText("営業状態",left+10,bodyTop+statusRowHeight/2);
+  dates.forEach((d,i)=>{
+   const x=left+nameWidth+i*cellWidth;cell(x,bodyTop,cellWidth,statusRowHeight,"#fff4d9");
+   const status=getShiftDayStatus(s,d);
+   ctx.textAlign="center";ctx.font="bold 12px sans-serif";ctx.fillStyle=status==="営業"?"#5b3500":"#c62828";ctx.fillText(status,x+cellWidth/2,bodyTop+statusRowHeight/2);
+  });
+  bodyTop+=statusRowHeight;
+ }
  staff.forEach((p,r)=>{
-  const y=top+rowHeight*(headerRows+r);const fill=r%2===0?"#ffffff":"#eef6ff";
+  const y=bodyTop+rowHeight*r;const fill=r%2===0?"#ffffff":"#eef6ff";
   cell(left,y,nameWidth,rowHeight,fill);ctx.fillStyle="#2f2418";ctx.font="bold 14px sans-serif";ctx.textAlign="left";ctx.fillText(p.name,left+10,y+rowHeight/2);
   dates.forEach((d,i)=>{
    const x=left+nameWidth+i*cellWidth;cell(x,y,cellWidth,rowHeight,fill);
@@ -383,7 +376,7 @@ async function createShiftImageFile(){
   });
  });
  if(s.showHeadcount){
-  const y=top+rowHeight*(headerRows+staff.length);cell(left,y,nameWidth,rowHeight,"#fff4d9");ctx.fillStyle="#5b3500";ctx.textAlign="left";ctx.font="bold 13px sans-serif";ctx.fillText("出勤人数",left+10,y+rowHeight/2);
+  const y=bodyTop+rowHeight*staff.length;cell(left,y,nameWidth,rowHeight,"#fff4d9");ctx.fillStyle="#5b3500";ctx.textAlign="left";ctx.font="bold 13px sans-serif";ctx.fillText("出勤人数",left+10,y+rowHeight/2);
   dates.forEach((d,i)=>{
    const x=left+nameWidth+i*cellWidth;cell(x,y,cellWidth,rowHeight,"#fff4d9");
    const count=staff.filter(p=>{const v=s.assignments?.[p.id]?.[d]||"";return v&&v!=="休"}).length;
@@ -400,7 +393,7 @@ async function shareToLine(){
  try{
   const file=await createShiftImageFile();
   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-   await navigator.share({title:"シンプルシフト表｜小売店版",text,files:[file]});
+   await navigator.share({title:"シンプルシフト表｜飲食店版",text,files:[file]});
    const current=selected();if(current){current.lineSharedAt=new Date().toISOString();save();renderShiftList()}
    toast("記入済みシフト表の画像を共有しました");
    return;
@@ -438,6 +431,12 @@ function clearPrintLayout(){
 }
 window.addEventListener("beforeprint",preparePrintLayout);
 window.addEventListener("afterprint",clearPrintLayout);
+function exportPdf(){
+ if(!selectedShiftId)return alert("PDFにするシフト表を開いてください。");
+ document.body.classList.remove("printing-announcement","announcement-print-dense","announcement-print-ultra");
+ preparePrintLayout();
+ window.print();
+}
 function renderDetail(){
  const s=selected();if(!s)return;
  const staff=getShiftStaff(s);
@@ -460,7 +459,7 @@ function renderDetail(){
   else if(w===6)classes.push("saturday");
   const status=getShiftDayStatus(s,d);
   const statusSelectClass=status==="営業"?"day-status-select":"day-status-select status-off";
-  const statusHtml=showDayStatus?`<div class="day-status-wrap"><select class="${statusSelectClass}" data-date="${d}">${["営業","休業","臨時休業"].map(option=>`<option value="${option}" ${option===status?"selected":""}>${option}</option>`).join("")}</select><span class="print-day-status">${esc(status)}</span></div>`:"";
+  const statusHtml=showDayStatus?`<div class="day-status-wrap"><select class="${statusSelectClass}" data-date="${d}">${["営業","休業","臨時休業"].map(option=>`<option value="${option}" ${option===status?"selected":""}>${option}</option>`).join("")}</select><span class="print-day-status${status!=="営業"?" status-off":""}">${esc(status)}</span></div>`:"";
   h+=`<th class="${classes.join(" ")}"><div class="date-header-cell"><div class="date-label">${headerDate(d)}</div>${statusHtml}</div></th>`;
  });
  h+="</tr></thead><tbody>";
@@ -502,12 +501,12 @@ function renderDetail(){
 function isWorkingAssignment(value){const v=String(value||"").trim();if(!v)return false;if(v==="休"||v==="休み"||v.includes("定休日")||v.includes("休業"))return false;return true}
 function toggleHeadcount(){const s=selected();if(!s)return;s.showHeadcount=!s.showHeadcount;save();renderDetail()}
 function toggleDayStatus(){const s=selected();if(!s)return;s.showDayStatus=s.showDayStatus===false;save();renderDetail()}
-function openAssignment(staffId,date){const s=selected(),p=state.staff.find(x=>x.id===staffId);if(!s||!p)return;editingCell={staffId,date};els.assignmentTitle.textContent=p.name;els.assignmentSubtitle.textContent=longDate(date);renderAssignmentChoices();openModal("assignment");els.customAssignmentInput.focus()}
+function openAssignment(staffId,date){const s=selected(),p=state.staff.find(x=>x.id===staffId);if(!s||!p)return;editingCell={staffId,date};els.assignmentTitle.textContent=p.name;els.assignmentSubtitle.textContent=longDate(date);renderAssignmentChoices();openModal("assignment")}
 function baseChoices(type){return [["","未入力"]]}
 function seedAssignmentDefaults(catId){if(!Array.isArray(state.customOptions[catId]))state.customOptions[catId]=[];["休","○"].forEach(v=>{if(!state.customOptions[catId].includes(v))state.customOptions[catId].unshift(v)})}
 function renderAssignmentChoices(){const s=selected();if(!s||!editingCell)return;els.assignmentOptions.innerHTML="";const current=s.assignments?.[editingCell.staffId]?.[editingCell.date]||"",standard=baseChoices(s.type),registered=state.customOptions[s.type]||[],standardValues=new Set(standard.map(([v])=>v));const choices=[...standard,...registered.filter(v=>!standardValues.has(v)).map(v=>[v,v])];choices.forEach(([v,l])=>{const b=document.createElement("button");b.type="button";b.className="assignment-option"+(v===current?" selected":"");b.textContent=l;b.onclick=()=>setAssignment(v);els.assignmentOptions.appendChild(b)});els.customAssignmentInput.value=choices.some(([v])=>v===current)?"":current;renderRegisteredSettings(s.type)}
 function renderRegisteredSettings(type){const items=state.customOptions[type]||[];els.registeredAssignmentSettings.classList.toggle("hidden",items.length===0);els.registeredAssignmentList.innerHTML="";items.forEach((value,index)=>{const row=document.createElement("div");row.className="registered-assignment-row";row.innerHTML=`<span>${esc(value)}</span><div><button type="button" class="mini-option-button up" ${index===0?"disabled":""}>↑</button><button type="button" class="mini-option-button down" ${index===items.length-1?"disabled":""}>↓</button><button type="button" class="mini-option-button delete">削除</button></div>`;row.querySelector(".up").onclick=()=>moveCustomOption(type,index,-1);row.querySelector(".down").onclick=()=>moveCustomOption(type,index,1);row.querySelector(".delete").onclick=()=>deleteCustomOption(type,value);els.registeredAssignmentList.appendChild(row)})}
-function setAssignment(v){const s=selected(),{staffId,date}=editingCell;if(!s.assignments[staffId])s.assignments[staffId]={};if(v)s.assignments[staffId][date]=v;else delete s.assignments[staffId][date];if(Object.keys(s.assignments[staffId]).length===0)delete s.assignments[staffId];save();closeModal("assignment");renderDetail()}
+function setAssignment(v){if(!guardFullAccess())return;const s=selected(),{staffId,date}=editingCell;if(!s.assignments[staffId])s.assignments[staffId]={};if(v)s.assignments[staffId][date]=v;else delete s.assignments[staffId][date];if(Object.keys(s.assignments[staffId]).length===0)delete s.assignments[staffId];save();closeModal("assignment");renderDetail()}
 function saveCustomAssignment(){const v=els.customAssignmentInput.value.trim();if(!v)return alert("自由入力の内容を入力してください。");setAssignment(v)}
 function registerCustomAssignment(){const s=selected(),v=els.customAssignmentInput.value.trim();if(!s||!v)return alert("登録する内容を入力してください。");const standard=new Set(baseChoices(s.type).map(([value])=>value));if(standard.has(v))return alert("この内容はすでに標準の選択肢にあります。");const list=state.customOptions[s.type];if(list.includes(v))return alert("この内容はすでに登録されています。");list.push(v);save();renderAssignmentChoices();els.customAssignmentInput.value=v;toast(`「${v}」を登録しました`)}
 function moveCustomOption(type,index,direction){const list=state.customOptions[type],next=index+direction;if(next<0||next>=list.length)return;[list[index],list[next]]=[list[next],list[index]];save();renderAssignmentChoices()}
@@ -583,8 +582,9 @@ function copyPrevious(){
 }
 function clearShift(){const s=selected();if(s&&confirm("このシフト表の入力内容をすべて消去しますか？")){s.assignments={};save();renderDetail();toast("入力を全消去しました")}}
 
-const ANNOUNCEMENT_DEFAULT_STATUS={"臨時休業":"臨時休業","夏季休暇":"休業","年末年始":"休業","棚卸し":"臨時休業"};
-function announcementStatusTextColor(name){return (name==="休業"||name==="臨時休業")?"#c62828":"#292421"}
+const ANNOUNCEMENT_DEFAULT_STATUS={"臨時休業":"臨時休業","夏季休暇":"休業","年末年始":"休業","貸切":"臨時休業","ランチ休業":"臨時休業","ディナー休業":"臨時休業"};
+function isOffStatus(name){const saved=state.announcementStatusOff?.[name];return typeof saved==="boolean"?saved:name!=="営業"}
+function announcementStatusTextColor(name){return isOffStatus(name)?"#c62828":"#292421"}
 function announcementPeriodText(start,end){if(!start)return "";if(!end||end===start)return longDate(start);return `${longDate(start)}～${longDate(end)}`}
 function isConsecutiveDate(prev,next){return new Date(next+"T00:00:00")-new Date(prev+"T00:00:00")===86400000}
 function announcementDayEntries(a){if(a.template==="営業時間変更")return [];return dateRange(a.startDate,a.endDate).map(d=>({date:d,status:a.dayStatuses?.[d]||"営業"}))}
@@ -668,7 +668,7 @@ function renderAnnouncementDayStatusList(resetDefaults,seedStatuses){
  const defaultStatus=ANNOUNCEMENT_DEFAULT_STATUS[template]||state.announcementStatuses[0];
  const previous={};
  table.querySelectorAll("select[data-date]").forEach(s=>{previous[s.dataset.date]=s.value});
- const statusClass=v=>(v==="休業"||v==="臨時休業")?"announcement-day-select status-off":"announcement-day-select";
+ const statusClass=v=>isOffStatus(v)?"announcement-day-select status-off":"announcement-day-select";
  let h="<thead><tr>"+dates.map(d=>`<th>${headerDate(d)}</th>`).join("")+"</tr></thead><tbody><tr>";
  h+=dates.map(d=>{
   if(seedStatuses&&seedStatuses[d]){const seeded=seedStatuses[d];return `<td><select data-date="${d}" class="${statusClass(seeded)}">${state.announcementStatuses.map(s=>`<option value="${esc(s)}" ${s===seeded?"selected":""}>${esc(s)}</option>`).join("")}</select></td>`}
@@ -685,7 +685,10 @@ function addAnnouncementStatus(){
  if(!name)return alert("状態の名前を入力してください。");
  if(state.announcementStatuses.includes(name))return alert("同じ名前の状態がすでに登録されています。");
  state.announcementStatuses.push(name);
+ if(!state.announcementStatusOff||typeof state.announcementStatusOff!="object")state.announcementStatusOff={};
+ state.announcementStatusOff[name]=!!$("newAnnouncementStatusOff")?.checked;
  input.value="";
+ if($("newAnnouncementStatusOff"))$("newAnnouncementStatusOff").checked=false;
  save();renderAnnouncementStatusManageList();renderAnnouncementDayStatusList(false);
  toast(`「${name}」を追加しました`);
 }
@@ -693,15 +696,22 @@ function deleteAnnouncementStatus(name){
  if(state.announcementStatuses.length<=1)return alert("状態は最低1つ必要です。");
  if(!confirm(`「${name}」を削除しますか？`))return;
  state.announcementStatuses=state.announcementStatuses.filter(s=>s!==name);
+ if(state.announcementStatusOff)delete state.announcementStatusOff[name];
  save();renderAnnouncementStatusManageList();renderAnnouncementDayStatusList(false);
 }
 function renderAnnouncementStatusManageList(){
  const list=$("announcementStatusManageList");if(!list)return;
- list.innerHTML=state.announcementStatuses.map(s=>`<div class="registered-assignment-row"><span>${esc(s)}</span><button type="button" class="mini-option-button delete" data-name="${esc(s)}">削除</button></div>`).join("");
+ list.innerHTML=state.announcementStatuses.map(s=>`<div class="registered-assignment-row"><span>${esc(s)}</span><div><label class="check-label" style="margin:0;gap:4px"><input type="checkbox" class="status-off-toggle" data-name="${esc(s)}" ${isOffStatus(s)?"checked":""}>赤字</label><button type="button" class="mini-option-button delete" data-name="${esc(s)}">削除</button></div></div>`).join("");
+ list.querySelectorAll(".status-off-toggle").forEach(c=>c.onchange=()=>{
+  if(!state.announcementStatusOff||typeof state.announcementStatusOff!="object")state.announcementStatusOff={};
+  state.announcementStatusOff[c.dataset.name]=c.checked;
+  save();renderAnnouncementDayStatusList(false);
+ });
  list.querySelectorAll(".delete").forEach(b=>b.onclick=()=>deleteAnnouncementStatus(b.dataset.name));
 }
 function saveAnnouncement(e){
  e.preventDefault();
+ if(!guardFullAccess())return;
  const template=$("announcementTemplate").value;
  const startDate=$("announcementStartDate").value;
  const endDate=$("announcementEndDate").value||startDate;
@@ -729,15 +739,23 @@ function saveAnnouncement(e){
   save();closeModal("announcement");renderAnnouncementList();toast("お知らせを作成しました");
  }
 }
+function renderAnnouncementListBody(a){
+ if(a.template==="営業時間変更"){
+  return `<p class="announcement-period">${esc(announcementPeriodText(a.startDate,a.endDate))}</p><p>営業時間を ${esc(a.startTime)}～${esc(a.endTime)} に変更させていただきます。</p>`;
+ }
+ const rows=announcementDayEntries(a).map(e=>`<div class="announcement-day-row"><span>${esc(longDate(e.date))}</span><span class="announcement-day-badge" style="color:${announcementStatusTextColor(e.status)}">${esc(e.status)}</span></div>`).join("");
+ return `<div class="announcement-day-rows">${rows}</div>`;
+}
 function renderAnnouncementList(){
  const list=$("announcementList");if(!list)return;
  $("announcementEmptyMessage")?.classList.toggle("hidden",state.announcements.length>0);
- list.innerHTML=state.announcements.map(a=>`<div class="setting-item announcement-item"><img class="announcement-preview" src="${drawAnnouncementCanvas(a).toDataURL("image/png")}" alt="${esc(a.template)}のお知らせプレビュー"><div class="staff-actions"><button type="button" class="secondary-button edit" data-id="${a.id}">編集</button><button type="button" class="secondary-button line-share" data-id="${a.id}">LINE・PDFで共有</button><button type="button" class="danger-outline-button del" data-id="${a.id}">削除</button></div></div>`).join("");
+ list.innerHTML=state.announcements.map(a=>`<div class="setting-item"><div><p class="type-badge">${esc(a.template)}</p>${renderAnnouncementListBody(a)}</div><div class="staff-actions"><button type="button" class="secondary-button edit" data-id="${a.id}">編集</button><button type="button" class="secondary-button line-share" data-id="${a.id}">LINEで送る</button>${isNativeApp?"":`<button type="button" class="secondary-button pdf" data-id="${a.id}">PDF保存</button>`}<button type="button" class="danger-outline-button del" data-id="${a.id}">削除</button></div></div>`).join("");
  list.querySelectorAll(".edit").forEach(b=>b.onclick=()=>{const a=state.announcements.find(x=>x.id===b.dataset.id);if(a)openAnnouncementModal(a)});
  list.querySelectorAll(".line-share").forEach(b=>b.onclick=()=>shareAnnouncementToLine(b.dataset.id));
- list.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(confirm("このお知らせを削除しますか？")){state.announcements=state.announcements.filter(x=>x.id!==b.dataset.id);save();renderAnnouncementList()}});
+ list.querySelectorAll(".pdf").forEach(b=>b.onclick=()=>exportAnnouncementPdf(b.dataset.id));
+ list.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(!guardFullAccess())return;if(confirm("このお知らせを削除しますか？")){state.announcements=state.announcements.filter(x=>x.id!==b.dataset.id);save();renderAnnouncementList()}});
 }
-function drawAnnouncementCanvas(a){
+async function createAnnouncementImageFile(a){
  const width=760,padding=70,titleHeight=64,dateColWidth=190;
  const entries=announcementDayEntries(a);
  const rowHeight=54;
@@ -769,10 +787,6 @@ function drawAnnouncementCanvas(a){
  }
  ctx.fillStyle="#5b3500";ctx.font="18px sans-serif";
  ctx.fillText("ご不便をおかけしますが、何卒よろしくお願いいたします。",padding,y+26);
- return canvas;
-}
-async function createAnnouncementImageFile(a){
- const canvas=drawAnnouncementCanvas(a);
  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/png"));
  return new File([blob],"announcement.png",{type:"image/png"});
 }
@@ -781,7 +795,7 @@ async function shareAnnouncementToLine(annId){
  try{
   const file=await createAnnouncementImageFile(a);
   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-   await navigator.share({title:"シンプルシフト表｜小売店版",text:a.text,files:[file]});
+   await navigator.share({title:"シンプルシフト表｜飲食店版",text:a.text,files:[file]});
    toast("お知らせの画像を共有しました");
    return;
   }
@@ -792,6 +806,26 @@ async function shareAnnouncementToLine(annId){
   alert("共有に失敗しました。もう一度お試しください。");
  }
 }
+function renderAnnouncementCardHtml(a){
+ const title=`<h2>${esc(a.template)}のお知らせ</h2>`;
+ if(a.template==="営業時間変更"){
+  return `${title}<p class="announcement-period">${esc(announcementPeriodText(a.startDate,a.endDate))}</p><p class="announcement-message">営業時間を ${esc(a.startTime)}～${esc(a.endTime)} に変更させていただきます。</p>`;
+ }
+ const rows=announcementDayEntries(a).map(e=>{
+  return `<div class="announcement-day-row"><span class="announcement-day-date">${esc(longDate(e.date))}</span><span class="announcement-day-badge" style="color:${announcementStatusTextColor(e.status)}">${esc(e.status)}</span></div>`;
+ }).join("");
+ return `${title}<div class="announcement-day-rows">${rows}</div><p class="announcement-message">ご不便をおかけしますが、何卒よろしくお願いいたします。</p>`;
+}
+function exportAnnouncementPdf(annId){
+ const a=state.announcements.find(x=>x.id===annId);if(!a)return;
+ $("announcementPrintArea").innerHTML=renderAnnouncementCardHtml(a);
+ const rowCount=announcementDayEntries(a).length;
+ document.body.classList.remove("print-dense","print-ultra","announcement-print-dense","announcement-print-ultra");
+ if(rowCount>22)document.body.classList.add("announcement-print-ultra");
+ else if(rowCount>12)document.body.classList.add("announcement-print-dense");
+ document.body.classList.add("printing-announcement");
+ window.print();
+}
 function normalize(s){const valid=new Set(dateRange(s.startDate,s.endDate));Object.values(s.assignments||{}).forEach(m=>Object.keys(m).forEach(d=>{if(!valid.has(d))delete m[d]}));if(!s.dayStatuses||typeof s.dayStatuses!="object")s.dayStatuses={};Object.keys(s.dayStatuses).forEach(d=>{if(!valid.has(d))delete s.dayStatuses[d]})}
 function openStaffModal(p=null){els.staffForm.reset();$("staffModalTitle").textContent=p?"スタッフ編集":"スタッフ追加";els.staffId.value=p?.id||"";els.staffName.value=p?.name||"";renderStaffTypeChecklist(p?.workTypes||[state.categories[0].id]);els.isManager.checked=!!p?.isManager;renderStaffModalRegisteredList(!p);openModal("staff");els.staffName.focus()}
 function renderStaffModalRegisteredList(show){
@@ -801,58 +835,61 @@ function renderStaffModalRegisteredList(show){
  $("staffModalRegisteredCount").textContent=state.staff.length;
  $("staffModalRegisteredNames").innerHTML=state.staff.map(p=>`<span class="staff-modal-registered-chip">${esc(p.name)}</span>`).join("");
 }
-let savingStaff=false;
 function saveStaff(e){
  e.preventDefault();
- if(savingStaff)return;
- savingStaff=true;
- setTimeout(()=>{savingStaff=false},500);
+ if(!guardFullAccess())return;
+ const submitBtn=els.staffForm.querySelector('[type="submit"]');
+ if(submitBtn&&submitBtn.disabled)return;
  const name=els.staffName.value.trim();
  if(!name)return;
  const workTypes=[...els.staffWorkTypes.querySelectorAll('input:checked')].map(x=>x.value);
  if(!workTypes.length)return alert("シフト用グループを1つ以上選んでください。");
- const p=state.staff.find(x=>x.id===els.staffId.value);
- const isEditing=!!p;
- if(!isEditing&&state.staff.some(x=>x.name===name))return alert("同じ名前のスタッフがすでに登録されています。");
- if(p){p.name=name;p.workTypes=workTypes;p.isManager=els.isManager.checked}
- else state.staff.push({id:id(),name,workTypes,isManager:els.isManager.checked,order:state.staff.length});
- sortStaff();save();renderAll();
- if(isEditing){
-  closeModal("staff");
-  toast("スタッフを保存しました");
- }else{
-  toast(`${name}さんを登録しました。続けて登録できます`);
-  els.staffForm.reset();
-  els.staffId.value="";
-  $("staffModalTitle").textContent="スタッフ追加";
-  renderStaffTypeChecklist([state.categories[0].id]);
-  els.isManager.checked=false;
-  renderStaffModalRegisteredList(true);
-  els.staffName.focus();
+ if(submitBtn)submitBtn.disabled=true;
+ try{
+  const p=state.staff.find(x=>x.id===els.staffId.value);
+  const isEditing=!!p;
+  if(p){p.name=name;p.workTypes=workTypes;p.isManager=els.isManager.checked}
+  else state.staff.push({id:id(),name,workTypes,isManager:els.isManager.checked,order:state.staff.length});
+  sortStaff();save();renderAll();
+  if(isEditing){
+   closeModal("staff");
+   toast("スタッフを保存しました");
+  }else{
+   toast(`${name}さんを登録しました。続けて登録できます`);
+   els.staffForm.reset();
+   els.staffId.value="";
+   $("staffModalTitle").textContent="スタッフ追加";
+   renderStaffTypeChecklist([state.categories[0].id]);
+   els.isManager.checked=false;
+   renderStaffModalRegisteredList(true);
+   els.staffName.focus();
+  }
+ }finally{
+  const btn=els.staffForm.querySelector('[type="submit"]');
+  if(btn)btn.disabled=false;
  }
 }
 function sortStaff(){state.staff.sort((a,b)=>(b.isManager-a.isManager)||(a.order-b.order));state.staff.forEach((s,i)=>s.order=i)}
 function renderStaffList(){els.staffList.innerHTML="";els.masterStaffEmptyMessage.classList.toggle("hidden",state.staff.length>0);state.staff.forEach((p,i)=>{const r=document.createElement("div");r.className="staff-row";r.innerHTML=`<div><span class="staff-name">${esc(p.name)}</span>${p.isManager?'<span class="manager-mark">店長</span>':''}</div><div class="staff-actions"><button class="small-button up" ${i===0?'disabled':''}>↑</button><button class="small-button down" ${i===state.staff.length-1?'disabled':''}>↓</button><button class="small-button edit">編集</button><button class="danger-button del">削除</button></div>`;r.querySelector(".edit").onclick=()=>openStaffModal(p);r.querySelector(".del").onclick=()=>deleteStaff(p);r.querySelector(".up").onclick=()=>moveStaff(i,-1);r.querySelector(".down").onclick=()=>moveStaff(i,1);els.staffList.appendChild(r)});$("staffToShiftGuide")?.classList.toggle("hidden",state.staff.length===0)}
 function moveStaff(i,d){const j=i+d;if(j<0||j>=state.staff.length)return;[state.staff[i],state.staff[j]]=[state.staff[j],state.staff[i]];state.staff.forEach((s,k)=>{s.order=k;s.isManager=k===0&&s.isManager});save();renderAll()}
-function deleteStaff(p){if(!confirm(`「${p.name}」を削除しますか？\n過去のシフト入力も削除されます。`))return;state.staff=state.staff.filter(x=>x.id!==p.id);state.shifts.forEach(s=>{delete s.assignments[p.id];if(s.staffOverrides){s.staffOverrides.include=s.staffOverrides.include.filter(x=>x!==p.id);s.staffOverrides.exclude=s.staffOverrides.exclude.filter(x=>x!==p.id)}});save();renderAll();toast("スタッフを削除しました")}
-const BACKUP_APP_ID="jp.umanari.simpleshiftretail";
+function deleteStaff(p){if(!guardFullAccess())return;if(!confirm(`「${p.name}」を削除しますか？\n過去のシフト入力も削除されます。`))return;state.staff=state.staff.filter(x=>x.id!==p.id);state.shifts.forEach(s=>{delete s.assignments[p.id];if(s.staffOverrides){s.staffOverrides.include=s.staffOverrides.include.filter(x=>x!==p.id);s.staffOverrides.exclude=s.staffOverrides.exclude.filter(x=>x!==p.id)}});save();renderAll();toast("スタッフを削除しました")}
 async function exportBackup(){
- try{
-  const filename=`シンプルシフト表_バックアップ_${new Date().toISOString().slice(0,10)}.json`;
-  const file=new File([JSON.stringify({...state,appId:BACKUP_APP_ID},null,2)],filename,{type:"application/json"});
-  if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
-   await navigator.share({title:"シンプルシフト表 バックアップ",files:[file]});
-   toast("バックアップを保存しました");
-   return;
+ const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+ const filename=`シンプルシフト表_バックアップ_${new Date().toISOString().slice(0,10)}.json`;
+ if(isNativeApp&&navigator.share){
+  try{
+   const file=new File([blob],filename,{type:"application/json"});
+   if(!navigator.canShare||navigator.canShare({files:[file]})){
+    await navigator.share({files:[file]});
+    return;
+   }
+  }catch(error){
+   if(error&&error.name==="AbortError")return;
   }
-  const a=document.createElement("a");a.href=URL.createObjectURL(file);a.download=file.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
- }catch(error){
-  if(error&&error.name==="AbortError")return;
-  console.error(error);
-  alert(error?.message||"バックアップの保存に失敗しました。もう一度お試しください。");
  }
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=filename;a.click();URL.revokeObjectURL(a.href);
 }
-function importBackup(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x.staff)||!Array.isArray(x.shifts))throw 0;if(x.appId&&x.appId!==BACKUP_APP_ID){if(!confirm("このバックアップファイルは、小売店版とは別のアプリ（飲食店版など）で作られたものの可能性があります。\nそれでも現在のデータをこの内容に置き換えますか？"))return}else if(!confirm("現在のデータをバックアップ内容に置き換えますか？"))return;state=x;selectedShiftId=null;save();closeDetail();renderAll();toast("保存データから復元しました")}catch{alert("正しいバックアップファイルではありません。")};e.target.value=""};r.readAsText(f)}
+function importBackup(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x.staff)||!Array.isArray(x.shifts))throw 0;if(!confirm("現在のデータをバックアップ内容に置き換えますか？"))return;state=x;selectedShiftId=null;save();closeDetail();renderAll();toast("保存データから復元しました")}catch{alert("正しいバックアップファイルではありません。")};e.target.value=""};r.readAsText(f)}
 
 function categoryName(type){return state.categories.find(c=>c.id===type)?.name||type}
 function renderTypeSelects(){if(els.shiftType){const current=els.shiftType.value;els.shiftType.innerHTML=state.categories.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");if(state.categories.some(c=>c.id===current))els.shiftType.value=current}}
@@ -907,7 +944,6 @@ function fmt(d){const x=new Date(d+"T00:00:00");return `${x.getFullYear()}年${x
 function headerDate(d){const x=new Date(d+"T00:00:00"),w="日月火水木金土"[x.getDay()];return `${x.getMonth()+1}/${x.getDate()}<br>(${w}${isJapaneseHoliday(d)?"・祝":""})`}
 function longDate(d){const x=new Date(d+"T00:00:00"),w="日月火水木金土"[x.getDay()];return `${x.getMonth()+1}月${x.getDate()}日（${w}${isJapaneseHoliday(d)?"・祝":""}）`}
 
-const holidayCache={};
 function isJapaneseHoliday(dateStr){
  const year=Number(dateStr.slice(0,4));
  if(!holidayCache[year])holidayCache[year]=buildJapaneseHolidaySet(year);
